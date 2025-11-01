@@ -1,10 +1,11 @@
 import './App.css'
+import MainRoutes from './routes/MainRoutes'
 
 function App() {
   return (
-    <div className='App'>
-      <h1>Online Examination Application</h1>
-    </div>
+    <>
+      <MainRoutes />
+    </>
   )
 }
 
