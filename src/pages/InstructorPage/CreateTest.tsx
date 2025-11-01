@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Calendar, Clock, Save } from 'lucide-react'
+import { testsApi } from '@/apis/tests.api'
 
 const CreateTest = () => {
+  console.log('API Base URL:', import.meta.env.VITE_BE_API_BASE_URL)
+  console.log(testsApi.getAllTests())
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
     title: '',
