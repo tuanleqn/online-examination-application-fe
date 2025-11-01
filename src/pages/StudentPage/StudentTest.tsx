@@ -4,7 +4,22 @@ import { Clock, Save, Send } from 'lucide-react'
 
 const StudentTest = () => {
   const navigate = useNavigate()
-  const [timeLeft, setTimeLeft] = useState(3600) // 60 minutes in seconds
+  // Total test time in seconds (60 minutes)
+  const TOTAL_TIME = 3600
+
+  // Persist end time so timer continues across refresh. Key is scoped by pathname.
+  const endTimeKey = `studentTest_end_${window.location.pathname}`
+
+  const getOrCreateEndTime = () => {
+    const stored = localStorage.getItem(endTimeKey)
+    if (stored) return parseInt(stored, 10)
+    const end = Date.now() + TOTAL_TIME * 1000
+    localStorage.setItem(endTimeKey, String(end))
+    return end
+  }
+
+  const initialEnd = getOrCreateEndTime()
+  const [timeLeft, setTimeLeft] = useState(() => Math.max(0, Math.round((initialEnd - Date.now()) / 1000)))
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
 
@@ -48,14 +63,14 @@ const StudentTest = () => {
   // Timer logic
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          handleSubmit()
-          return 0
-        }
-        return prev - 1
-      })
+      const stored = localStorage.getItem(endTimeKey)
+      const end = stored ? parseInt(stored, 10) : Date.now() + TOTAL_TIME * 1000
+      const t = Math.max(0, Math.round((end - Date.now()) / 1000))
+      setTimeLeft(t)
+      if (t <= 0) {
+        clearInterval(timer)
+        handleSubmit()
+      }
     }, 1000)
 
     return () => clearInterval(timer)
@@ -78,11 +93,13 @@ const StudentTest = () => {
   }
 
   const handleSubmit = () => {
+    // clear persisted end time so subsequent visits start fresh
+    localStorage.removeItem(endTimeKey)
     navigate('/student/test/confirmation')
   }
 
   // Calculate timer color
-  const totalTime = 3600
+  const totalTime = TOTAL_TIME
   const timePercentage = (timeLeft / totalTime) * 100
   let timerColor = 'text-timer-safe'
   let timerBg = 'bg-success-light'
