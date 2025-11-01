@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import { ToastContainer } from 'react-toastify'
 import InstructorDashboard from '@/pages/InstructorPage/InstructorDashboard'
+import CreateTest from '@/pages/InstructorPage/CreateTest'
 
 export default function MainRoutes() {
   return (
@@ -23,7 +24,7 @@ export default function MainRoutes() {
           {' '}
         </Route> */}
         <Route path='/instructor' element={<InstructorDashboard />}>
-          {/* <Route path='create-test' element={<CreateTest />} /> */}
+          <Route path='create-test' element={<CreateTest />} />
           {/* <Route path='test/:testId/questions' element={<ManageQuestions />} /> */}
         </Route>
         {/* <Route path='/student' element={<StudentDashboard />}>
