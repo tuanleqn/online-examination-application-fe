@@ -100,7 +100,9 @@ const StudentTest = () => {
   const handleConfirmSubmit = () => {
     // clear persisted end time so subsequent visits start fresh
     localStorage.removeItem(endTimeKey)
-    navigate('/student/test/confirmation')
+    // Navigate to confirmation page, preserving test ID from current path
+    const testId = window.location.pathname.split('/').pop()
+    navigate(`/test/${testId}/confirmation`)
   }
 
   const handleCancelSubmit = () => {

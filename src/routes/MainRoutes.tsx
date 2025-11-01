@@ -4,6 +4,7 @@ import InstructorDashboard from '@/pages/InstructorPage/InstructorDashboard'
 import CreateTest from '@/pages/InstructorPage/CreateTest'
 import ManageQuestions from '@/pages/InstructorPage/ManageQuestions'
 import StudentTest from '@/pages/StudentPage/StudentTest'
+import TestConfirmation from '@/pages/StudentPage/TestConfirmation'
 
 export default function MainRoutes() {
   return (
@@ -31,6 +32,7 @@ export default function MainRoutes() {
         </Route>
         {/* <Route path='/student' element={<StudentDashboard />}> */}
           <Route path='test/:testId' element={<StudentTest />} />
+          <Route path='test/:testId/confirmation' element={<TestConfirmation />} />
         {/* </Route> */}
 
         {/* <Route path='/auth' element={<AuthPage />}>
