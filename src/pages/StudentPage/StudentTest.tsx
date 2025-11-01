@@ -278,7 +278,7 @@ const StudentTest = () => {
               </button>
               <button
                 onClick={handleConfirmSubmit}
-                className='flex-1 px-4 py-2.5 bg-success text-success-foreground rounded-lg hover:opacity-90 transition-opacity font-medium'
+                className='flex-1 px-4 py-2.5 border border-border text-foreground hover:bg-muted/50 bg-success text-success-foreground rounded-lg hover:opacity-90 transition-opacity font-medium'
               >
                 Submit Test
               </button>
