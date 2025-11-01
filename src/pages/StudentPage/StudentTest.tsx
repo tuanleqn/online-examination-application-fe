@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Clock, Save, Send } from 'lucide-react'
+import { AlertTriangle, Clock, Save, Send, X } from 'lucide-react'
 
 const StudentTest = () => {
   const navigate = useNavigate()
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
   // Total test time in seconds (60 minutes)
   const TOTAL_TIME = 3600
 
@@ -69,7 +70,7 @@ const StudentTest = () => {
       setTimeLeft(t)
       if (t <= 0) {
         clearInterval(timer)
-        handleSubmit()
+        handleConfirmSubmit()
       }
     }, 1000)
 
@@ -92,10 +93,18 @@ const StudentTest = () => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }))
   }
 
-  const handleSubmit = () => {
+  const handleSubmitClick = () => {
+    setShowConfirmModal(true)
+  }
+
+  const handleConfirmSubmit = () => {
     // clear persisted end time so subsequent visits start fresh
     localStorage.removeItem(endTimeKey)
     navigate('/student/test/confirmation')
+  }
+
+  const handleCancelSubmit = () => {
+    setShowConfirmModal(false)
   }
 
   // Calculate timer color
@@ -217,7 +226,7 @@ const StudentTest = () => {
                 {Object.keys(answers).length} of {questions.length} questions answered
               </p>
               <button
-                onClick={handleSubmit}
+                onClick={handleSubmitClick}
                 className='flex items-center gap-2 px-6 py-3 bg-success text-success-foreground rounded-lg hover:opacity-90 transition-opacity font-medium'
               >
                 <Send className='h-4 w-4' />
@@ -227,6 +236,54 @@ const StudentTest = () => {
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className='fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm'>
+          <div className='bg-card border border-border rounded-2xl shadow-2xl max-w-md w-full mx-4 animate-in fade-in zoom-in duration-200'>
+            <div className='p-6'>
+              <div className='flex items-start gap-4'>
+                <div className='shrink-0 w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center'>
+                  <AlertTriangle className='h-6 w-6 text-warning' />
+                </div>
+                <div className='flex-1'>
+                  <h3 className='text-lg font-semibold text-foreground mb-2'>Submit Test?</h3>
+                  <p className='text-sm text-muted-foreground mb-1'>
+                    {Object.keys(answers).length === questions.length
+                      ? 'You have answered all questions.'
+                      : `You have ${questions.length - Object.keys(answers).length} unanswered question${
+                          questions.length - Object.keys(answers).length > 1 ? 's' : ''
+                        }.`}
+                  </p>
+                  <p className='text-sm text-muted-foreground'>
+                    Are you sure you want to submit this test? You cannot change your answers after submission.
+                  </p>
+                </div>
+                <button
+                  onClick={handleCancelSubmit}
+                  className='shrink-0 p-1 text-muted-foreground hover:text-foreground transition-colors'
+                >
+                  <X className='h-5 w-5' />
+                </button>
+              </div>
+            </div>
+            <div className='border-t border-border p-4 flex gap-3'>
+              <button
+                onClick={handleCancelSubmit}
+                className='flex-1 px-4 py-2.5 border border-border text-foreground rounded-lg hover:bg-muted/50 transition-colors font-medium'
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmSubmit}
+                className='flex-1 px-4 py-2.5 bg-success text-success-foreground rounded-lg hover:opacity-90 transition-opacity font-medium'
+              >
+                Submit Test
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
