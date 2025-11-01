@@ -14,6 +14,7 @@ const ManageQuestions = () => {
   const [passcode, setPasscode] = useState('')
   const [copied, setCopied] = useState(false)
 
+  const [questionType, setQuestionType] = useState<'mcq' | 'true-false'>('mcq')
   const [formData, setFormData] = useState({
     text: '',
     options: ['', ''],
@@ -82,18 +83,38 @@ const ManageQuestions = () => {
   }
 
   const handleAddQuestion = () => {
-    if (!formData.text.trim() || formData.options.some((opt) => !opt.trim())) {
-      alert('Please fill in all fields')
+    // Validation based on question type
+    if (!formData.text.trim()) {
+      alert('Please enter the question text')
       return
     }
 
-    const newQuestion: Question = {
-      id: `q-${Date.now()}`,
-      type: 'mcq',
-      text: formData.text,
-      options: formData.options,
-      correctAnswer: formData.options[formData.correctAnswer],
-      points: formData.points
+    if (questionType === 'mcq' && formData.options.some((opt) => !opt.trim())) {
+      alert('Please fill in all options')
+      return
+    }
+
+    let newQuestion: Question
+
+    if (questionType === 'mcq') {
+      newQuestion = {
+        id: `q-${Date.now()}`,
+        type: 'mcq',
+        text: formData.text,
+        options: formData.options,
+        correctAnswer: formData.options[formData.correctAnswer],
+        points: formData.points
+      }
+    } else {
+      // true-false
+      newQuestion = {
+        id: `q-${Date.now()}`,
+        type: 'true-false',
+        text: formData.text,
+        options: ['True', 'False'],
+        correctAnswer: formData.correctAnswer === 0 ? 'True' : 'False',
+        points: formData.points
+      }
     }
 
     const updated = [...questions, newQuestion]
@@ -102,6 +123,7 @@ const ManageQuestions = () => {
 
     // Reset form
     setFormData({ text: '', options: ['', ''], correctAnswer: 0, points: 1 })
+    setQuestionType('mcq')
     setShowAddForm(false)
   }
 
@@ -197,6 +219,19 @@ const ManageQuestions = () => {
             </div>
 
             <div className='space-y-4'>
+              {/* Question Type Selector */}
+              <div>
+                <label className='block text-sm font-medium text-foreground mb-2'>Question Type</label>
+                <select
+                  value={questionType}
+                  onChange={(e) => setQuestionType(e.target.value as 'mcq' | 'true-false')}
+                  className='w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary'
+                >
+                  <option value='mcq'>Single Choice (chọn 1 đáp án)</option>
+                  <option value='true-false'>True/False (Đúng/Sai)</option>
+                </select>
+              </div>
+
               <div>
                 <label className='block text-sm font-medium text-foreground mb-2'>Question Text</label>
                 <textarea
@@ -208,44 +243,79 @@ const ManageQuestions = () => {
                 />
               </div>
 
-              <div>
-                <div className='flex items-center justify-between mb-2'>
-                  <label className='block text-sm font-medium text-foreground'>Answer Options (2-4)</label>
-                  {formData.options.length < 4 && (
-                    <button onClick={addOption} className='text-sm text-primary hover:text-primary-hover font-medium'>
-                      + Add Option
-                    </button>
-                  )}
+              {/* Multiple Choice Options */}
+              {questionType === 'mcq' && (
+                <div>
+                  <div className='flex items-center justify-between mb-2'>
+                    <label className='block text-sm font-medium text-foreground'>Answer Options (2-4)</label>
+                    {formData.options.length < 4 && (
+                      <button
+                        onClick={addOption}
+                        className='text-sm text-primary hover:text-primary-hover font-medium'
+                      >
+                        + Add Option
+                      </button>
+                    )}
+                  </div>
+                  <div className='space-y-2'>
+                    {formData.options.map((option, index) => (
+                      <div key={index} className='flex items-center gap-2'>
+                        <input
+                          type='radio'
+                          name='correctAnswer'
+                          checked={formData.correctAnswer === index}
+                          onChange={() => setFormData((prev) => ({ ...prev, correctAnswer: index }))}
+                          className='w-4 h-4 text-primary'
+                        />
+                        <input
+                          type='text'
+                          value={option}
+                          onChange={(e) => handleOptionChange(index, e.target.value)}
+                          placeholder={`Option ${index + 1}`}
+                          className='flex-1 px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary'
+                        />
+                        {formData.options.length > 2 && (
+                          <button
+                            onClick={() => removeOption(index)}
+                            className='p-2 text-danger hover:bg-danger/10 rounded-lg transition-colors'
+                          >
+                            <Trash2 className='h-4 w-4' />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className='space-y-2'>
-                  {formData.options.map((option, index) => (
-                    <div key={index} className='flex items-center gap-2'>
+              )}
+
+              {/* True/False Options */}
+              {questionType === 'true-false' && (
+                <div>
+                  <label className='block text-sm font-medium text-foreground mb-2'>Correct Answer</label>
+                  <div className='space-y-2'>
+                    <div className='flex items-center gap-2'>
                       <input
                         type='radio'
-                        name='correctAnswer'
-                        checked={formData.correctAnswer === index}
-                        onChange={() => setFormData((prev) => ({ ...prev, correctAnswer: index }))}
+                        name='trueFalseAnswer'
+                        checked={formData.correctAnswer === 0}
+                        onChange={() => setFormData((prev) => ({ ...prev, correctAnswer: 0 }))}
                         className='w-4 h-4 text-primary'
                       />
-                      <input
-                        type='text'
-                        value={option}
-                        onChange={(e) => handleOptionChange(index, e.target.value)}
-                        placeholder={`Option ${index + 1}`}
-                        className='flex-1 px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary'
-                      />
-                      {formData.options.length > 2 && (
-                        <button
-                          onClick={() => removeOption(index)}
-                          className='p-2 text-danger hover:bg-danger/10 rounded-lg transition-colors'
-                        >
-                          <Trash2 className='h-4 w-4' />
-                        </button>
-                      )}
+                      <label className='px-4 py-2 bg-background border border-border rounded-lg flex-1'>True</label>
                     </div>
-                  ))}
+                    <div className='flex items-center gap-2'>
+                      <input
+                        type='radio'
+                        name='trueFalseAnswer'
+                        checked={formData.correctAnswer === 1}
+                        onChange={() => setFormData((prev) => ({ ...prev, correctAnswer: 1 }))}
+                        className='w-4 h-4 text-primary'
+                      />
+                      <label className='px-4 py-2 bg-background border border-border rounded-lg flex-1'>False</label>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <label className='block text-sm font-medium text-foreground mb-2'>Points</label>
@@ -298,6 +368,15 @@ const ManageQuestions = () => {
                       <span className='px-2 py-1 bg-primary/10 text-primary text-sm font-medium rounded'>
                         Q{index + 1}
                       </span>
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded ${
+                          question.type === 'mcq'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-purple-100 text-purple-700'
+                        }`}
+                      >
+                        {question.type === 'mcq' ? 'Single Choice' : 'True/False'}
+                      </span>
                       <span className='text-sm text-muted-foreground'>{question.points} points</span>
                     </div>
                     <p className='text-foreground font-medium'>{question.text}</p>
@@ -318,6 +397,7 @@ const ManageQuestions = () => {
                   </div>
                 </div>
 
+                {/* Display options for MCQ and True/False */}
                 {question.options && (
                   <div className='space-y-2 mt-4'>
                     {question.options.map((option, optIndex) => (
