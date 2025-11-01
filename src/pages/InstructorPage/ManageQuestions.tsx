@@ -22,6 +22,15 @@ const ManageQuestions = () => {
     points: 1
   })
 
+  // Edit state: when editingId is set, editFormData holds the working values
+  const [editQuestionType, setEditQuestionType] = useState<'mcq' | 'true-false'>('mcq')
+  const [editFormData, setEditFormData] = useState({
+    text: '',
+    options: ['', ''],
+    correctAnswer: 0,
+    points: 1
+  })
+
   useEffect(() => {
     // Load test from localStorage
     const tests = JSON.parse(localStorage.getItem('tests') || '[]')
@@ -30,7 +39,7 @@ const ManageQuestions = () => {
       setTest(foundTest)
       setPasscode(foundTest.passcode || '')
       // Load questions
-      const storedQuestions = JSON.parse(localStorage.getItem(`questions-${testId}`) || '[]')
+  const storedQuestions = JSON.parse(localStorage.getItem(`questions-${testId}`) || '[]')
       setQuestions(storedQuestions)
     } else {
       navigate('/instructor')
@@ -62,6 +71,31 @@ const ManageQuestions = () => {
     if (formData.options.length < 4) {
       setFormData((prev) => ({ ...prev, options: [...prev.options, ''] }))
     }
+  }
+
+  // Edit-specific option handlers
+  const addEditOption = () => {
+    if (editFormData.options.length < 4) {
+      setEditFormData((prev) => ({ ...prev, options: [...prev.options, ''] }))
+    }
+  }
+
+  const removeEditOption = (index: number) => {
+    if (editFormData.options.length > 2) {
+      setEditFormData((prev) => ({
+        ...prev,
+        options: prev.options.filter((_, i) => i !== index),
+        correctAnswer:
+          prev.correctAnswer === index ? 0 : prev.correctAnswer > index ? prev.correctAnswer - 1 : prev.correctAnswer
+      }))
+    }
+  }
+
+  const handleEditOptionChange = (index: number, value: string) => {
+    setEditFormData((prev) => ({
+      ...prev,
+      options: prev.options.map((opt, i) => (i === index ? value : opt))
+    }))
   }
 
   const removeOption = (index: number) => {
@@ -119,7 +153,7 @@ const ManageQuestions = () => {
 
     const updated = [...questions, newQuestion]
     setQuestions(updated)
-    localStorage.setItem(`questions-${testId}`, JSON.stringify(updated))
+  localStorage.setItem(`questions-${testId}`, JSON.stringify(updated))
 
     // Reset form
     setFormData({ text: '', options: ['', ''], correctAnswer: 0, points: 1 })
@@ -131,8 +165,82 @@ const ManageQuestions = () => {
     if (confirm('Are you sure you want to delete this question?')) {
       const updated = questions.filter((q) => q.id !== id)
       setQuestions(updated)
-      localStorage.setItem(`questions-${testId}`, JSON.stringify(updated))
+  localStorage.setItem(`questions-${testId}`, JSON.stringify(updated))
     }
+  }
+
+  // Start editing a question: prefill editFormData
+  const startEdit = (q: Question) => {
+    setEditingId(q.id)
+    setEditQuestionType(q.type === 'mcq' ? 'mcq' : 'true-false')
+    setEditFormData({
+      text: q.text,
+      options: q.options && q.options.length ? [...q.options] : q.type === 'true-false' ? ['True', 'False'] : ['', ''],
+      correctAnswer: q.options ? Math.max(0, q.options.indexOf(String(q.correctAnswer))) : 0,
+      points: q.points ?? 1
+    })
+    // close add form if open
+    setShowAddForm(false)
+  }
+
+  const saveEdit = () => {
+    if (!editFormData.text.trim()) {
+      alert('Please enter the question text')
+      return
+    }
+    if (editQuestionType === 'mcq' && editFormData.options.some((opt) => !opt.trim())) {
+      alert('Please fill in all options')
+      return
+    }
+
+    const updatedQuestions = questions.map((q) => {
+      if (q.id !== editingId) return q
+      if (editQuestionType === 'mcq') {
+        return {
+          ...q,
+          type: 'mcq',
+          text: editFormData.text,
+          options: editFormData.options,
+          correctAnswer: editFormData.options[editFormData.correctAnswer],
+          points: editFormData.points
+        }
+      } else {
+        return {
+          ...q,
+          type: 'true-false',
+          text: editFormData.text,
+          options: ['True', 'False'],
+          correctAnswer: editFormData.correctAnswer === 0 ? 'True' : 'False',
+          points: editFormData.points
+        }
+      }
+    })
+    const typedUpdated = updatedQuestions as Question[]
+
+    setQuestions(typedUpdated)
+  localStorage.setItem(`questions-${testId}`, JSON.stringify(typedUpdated))
+    setEditingId(null)
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+  }
+
+  const submitTest = () => {
+    if (!questions || questions.length === 0) {
+      alert('Please add at least one question before submitting the test.')
+      return
+    }
+
+    // Update tests entry in localStorage to include questions and mark published
+    const tests = JSON.parse(localStorage.getItem('tests') || '[]') as Test[]
+    const updatedTests = tests.map((t: Test) => (t.id === testId ? { ...t, questions, published: true } : t))
+    localStorage.setItem('tests', JSON.stringify(updatedTests))
+
+  // update local state (avoid strict Test typing for added fields)
+  setTest((prev) => (prev ? ({ ...prev, questions, published: true } as any) : prev))
+
+    alert('Test submitted successfully.')
   }
 
   if (!test) return null
@@ -157,13 +265,21 @@ const ManageQuestions = () => {
                 <p className='text-sm text-muted-foreground'>Manage Questions</p>
               </div>
             </div>
-            <button
-              onClick={() => setShowAddForm(true)}
-              className='flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors'
-            >
-              <Plus className='h-4 w-4' />
-              Add Question
-            </button>
+            <div className='flex items-center gap-2'>
+              <button
+                onClick={() => setShowAddForm(true)}
+                className='flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors'
+              >
+                <Plus className='h-4 w-4' />
+                Add Question
+              </button>
+              <button
+                onClick={() => submitTest()}
+                className='flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors'
+              >
+                Submit
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -383,7 +499,7 @@ const ManageQuestions = () => {
                   </div>
                   <div className='flex items-center gap-2'>
                     <button
-                      onClick={() => setEditingId(question.id)}
+                      onClick={() => startEdit(question)}
                       className='p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors'
                     >
                       <Edit2 className='h-4 w-4' />
@@ -397,24 +513,136 @@ const ManageQuestions = () => {
                   </div>
                 </div>
 
-                {/* Display options for MCQ and True/False */}
-                {question.options && (
-                  <div className='space-y-2 mt-4'>
-                    {question.options.map((option, optIndex) => (
-                      <div
-                        key={optIndex}
-                        className={`flex items-center gap-3 px-4 py-2 rounded-lg ${
-                          option === question.correctAnswer ? 'bg-success/10 border border-success/20' : 'bg-muted/30'
-                        }`}
+                {/* Inline edit form when editing this question, otherwise show options */}
+                {editingId === question.id ? (
+                  <div className='mt-4 space-y-4'>
+                    <div>
+                      <label className='block text-sm font-medium text-foreground mb-2'>Question Type</label>
+                      <select
+                        value={editQuestionType}
+                        onChange={(e) => setEditQuestionType(e.target.value as 'mcq' | 'true-false')}
+                        className='w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary'
                       >
-                        <span className='text-sm text-muted-foreground font-medium'>
-                          {String.fromCharCode(65 + optIndex)}.
-                        </span>
-                        <span className='text-sm text-foreground'>{option}</span>
-                        {option === question.correctAnswer && <Check className='h-4 w-4 text-success ml-auto' />}
+                        <option value='mcq'>Single Choice (chọn 1 đáp án)</option>
+                        <option value='true-false'>True/False (Đúng/Sai)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className='block text-sm font-medium text-foreground mb-2'>Question Text</label>
+                      <textarea
+                        value={editFormData.text}
+                        onChange={(e) => setEditFormData((prev) => ({ ...prev, text: e.target.value }))}
+                        rows={3}
+                        className='w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none'
+                      />
+                    </div>
+
+                    {editQuestionType === 'mcq' && (
+                      <div>
+                        <div className='flex items-center justify-between mb-2'>
+                          <label className='block text-sm font-medium text-foreground'>Answer Options (2-4)</label>
+                          {editFormData.options.length < 4 && (
+                            <button onClick={addEditOption} className='text-sm text-primary hover:text-primary-hover font-medium'>
+                              + Add Option
+                            </button>
+                          )}
+                        </div>
+                        <div className='space-y-2'>
+                          {editFormData.options.map((option, idx) => (
+                            <div key={idx} className='flex items-center gap-2'>
+                              <input
+                                type='radio'
+                                name={`correct-${question.id}`}
+                                checked={editFormData.correctAnswer === idx}
+                                onChange={() => setEditFormData((prev) => ({ ...prev, correctAnswer: idx }))}
+                                className='w-4 h-4 text-primary'
+                              />
+                              <input
+                                type='text'
+                                value={option}
+                                onChange={(e) => handleEditOptionChange(idx, e.target.value)}
+                                placeholder={`Option ${idx + 1}`}
+                                className='flex-1 px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary'
+                              />
+                              {editFormData.options.length > 2 && (
+                                <button onClick={() => removeEditOption(idx)} className='p-2 text-danger hover:bg-danger/10 rounded-lg transition-colors'>
+                                  <Trash2 className='h-4 w-4' />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
+                    )}
+
+                    {editQuestionType === 'true-false' && (
+                      <div>
+                        <label className='block text-sm font-medium text-foreground mb-2'>Correct Answer</label>
+                        <div className='space-y-2'>
+                          <div className='flex items-center gap-2'>
+                            <input
+                              type='radio'
+                              name={`tf-${question.id}`}
+                              checked={editFormData.correctAnswer === 0}
+                              onChange={() => setEditFormData((prev) => ({ ...prev, correctAnswer: 0 }))}
+                              className='w-4 h-4 text-primary'
+                            />
+                            <label className='px-4 py-2 bg-background border border-border rounded-lg flex-1'>True</label>
+                          </div>
+                          <div className='flex items-center gap-2'>
+                            <input
+                              type='radio'
+                              name={`tf-${question.id}`}
+                              checked={editFormData.correctAnswer === 1}
+                              onChange={() => setEditFormData((prev) => ({ ...prev, correctAnswer: 1 }))}
+                              className='w-4 h-4 text-primary'
+                            />
+                            <label className='px-4 py-2 bg-background border border-border rounded-lg flex-1'>False</label>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className='block text-sm font-medium text-foreground mb-2'>Points</label>
+                      <input
+                        type='number'
+                        min='1'
+                        value={editFormData.points}
+                        onChange={(e) => setEditFormData((prev) => ({ ...prev, points: parseInt(e.target.value) || 1 }))}
+                        className='w-32 px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary'
+                      />
+                    </div>
+
+                    <div className='flex gap-3 pt-2'>
+                      <button onClick={cancelEdit} className='flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-muted/50 transition-colors'>
+                        Cancel
+                      </button>
+                      <button onClick={saveEdit} className='flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors'>
+                        Save
+                      </button>
+                    </div>
                   </div>
+                ) : (
+                  question.options && (
+                    <div className='space-y-2 mt-4'>
+                      {question.options.map((option, optIndex) => (
+                        <div
+                          key={optIndex}
+                          className={`flex items-center gap-3 px-4 py-2 rounded-lg ${
+                            option === question.correctAnswer ? 'bg-success/10 border border-success/20' : 'bg-muted/30'
+                          }`}
+                        >
+                          <span className='text-sm text-muted-foreground font-medium'>
+                            {String.fromCharCode(65 + optIndex)}.
+                          </span>
+                          <span className='text-sm text-foreground'>{option}</span>
+                          {option === question.correctAnswer && <Check className='h-4 w-4 text-success ml-auto' />}
+                        </div>
+                      ))}
+                    </div>
+                  )
                 )}
               </div>
             ))
