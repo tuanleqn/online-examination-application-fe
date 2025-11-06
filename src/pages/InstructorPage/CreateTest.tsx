@@ -1,22 +1,20 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Calendar, Clock, Save } from 'lucide-react'
-import { testsApi } from '@/apis/tests.api'
 
 const CreateTest = () => {
-  console.log('API Base URL:', import.meta.env.VITE_BE_API_BASE_URL)
-  console.log(testsApi.getAllTests())
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
     title: '',
+    description: '',
     duration: '',
-    startTime: '',
-    endTime: '',
+    startTime: Date.now().toString(),
+    endTime: Date.now().toString(),
     className: ''
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
     // Clear error when user starts typing
@@ -61,10 +59,11 @@ const CreateTest = () => {
 
     if (!validateForm()) return
 
-    // Create test object
+    // Create test object and save to localStorage temporarily
     const newTest = {
       id: `test-${Date.now()}`,
       title: formData.title,
+      description: formData.description,
       duration: parseInt(formData.duration),
       startTime: new Date(formData.startTime),
       endTime: new Date(formData.endTime),
@@ -76,7 +75,7 @@ const CreateTest = () => {
       createdAt: new Date()
     }
 
-    // Save to localStorage (mock database)
+    // Save to localStorage temporarily (will be submitted to API after adding questions)
     const tests = JSON.parse(localStorage.getItem('tests') || '[]')
     tests.push(newTest)
     localStorage.setItem('tests', JSON.stringify(tests))
@@ -125,6 +124,22 @@ const CreateTest = () => {
                 }`}
               />
               {errors.title && <p className='mt-1 text-sm text-danger'>{errors.title}</p>}
+            </div>
+
+            {/* Description */}
+            <div>
+              <label htmlFor='description' className='block text-sm font-medium text-foreground mb-2'>
+                Description <span className='text-muted-foreground'>(optional)</span>
+              </label>
+              <textarea
+                id='description'
+                name='description'
+                value={formData.description}
+                onChange={handleChange}
+                placeholder='Brief description of the test...'
+                rows={3}
+                className='w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none'
+              />
             </div>
 
             {/* Duration */}

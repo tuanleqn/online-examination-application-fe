@@ -3,6 +3,7 @@ import type { Test } from '@/models/Test/Test'
 import { ArrowLeft, Check, Copy, Edit2, Key, Plus, Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { testsApi } from '@/apis/tests.api'
 
 const ManageQuestions = () => {
   const { testId } = useParams<{ testId: string }>()
@@ -13,6 +14,7 @@ const ManageQuestions = () => {
   const [showAddForm, setShowAddForm] = useState(false)
   const [passcode, setPasscode] = useState('')
   const [copied, setCopied] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [questionType, setQuestionType] = useState<'mcq' | 'true-false'>('mcq')
   const [formData, setFormData] = useState({
@@ -226,21 +228,60 @@ const ManageQuestions = () => {
     setEditingId(null)
   }
 
-  const submitTest = () => {
+  const submitTest = async () => {
     if (!questions || questions.length === 0) {
       alert('Please add at least one question before submitting the test.')
       return
     }
 
-    // Update tests entry in localStorage to include questions and mark published
-    const tests = JSON.parse(localStorage.getItem('tests') || '[]') as Test[]
-    const updatedTests = tests.map((t: Test) => (t.id === testId ? { ...t, questions, published: true } : t))
-    localStorage.setItem('tests', JSON.stringify(updatedTests))
+    if (!passcode) {
+      alert('Please generate a passcode before submitting.')
+      return
+    }
 
-    // update local state (avoid strict Test typing for added fields)
-    setTest((prev) => (prev ? ({ ...prev, questions, published: true } as any) : prev))
+    setIsSubmitting(true)
 
-    alert('Test submitted successfully.')
+    try {
+      // Prepare API payload according to the required format
+      const apiPayload = {
+        tittle: test?.title || '', // Note: API uses "tittle" (typo in API)
+        description: (test as any)?.description || '',
+        passCode: passcode,
+        status: true,
+        duration: (test as any)?.duration || 0,
+        questionCount: questions.length,
+        submisssionCount: 0, // Note: API uses "submisssionCount" (typo in API)
+        creatorId: 1, // TODO: Replace with actual creator ID from auth
+        questions: questions.map((q, index) => ({
+          questionId: index + 1,
+          questionText: q.text,
+          // composer field can be null or filled based on your requirements
+          composer: null
+        }))
+      }
+
+      // Call API to create test
+      const response = await testsApi.createTest(apiPayload)
+      console.log('Test created successfully:', response)
+
+      // Update localStorage to mark as published
+      const tests = JSON.parse(localStorage.getItem('tests') || '[]') as Test[]
+      const updatedTests = tests.map((t: Test) => (t.id === testId ? { ...t, questions, published: true } : t))
+      localStorage.setItem('tests', JSON.stringify(updatedTests))
+
+      // Update local state
+      setTest((prev) => (prev ? ({ ...prev, questions, published: true } as any) : prev))
+
+      alert('Test submitted successfully!')
+
+      // Redirect to dashboard
+      navigate('/instructor')
+    } catch (error) {
+      console.error('Error submitting test:', error)
+      alert('Failed to submit test. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (!test) return null
@@ -275,9 +316,17 @@ const ManageQuestions = () => {
               </button>
               <button
                 onClick={() => submitTest()}
-                className='flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors'
+                disabled={isSubmitting}
+                className='flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
               >
-                Submit
+                {isSubmitting ? (
+                  <>
+                    <div className='animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full' />
+                    Submitting...
+                  </>
+                ) : (
+                  'Submit'
+                )}
               </button>
             </div>
           </div>

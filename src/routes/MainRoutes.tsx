@@ -3,6 +3,10 @@ import { ToastContainer } from 'react-toastify'
 import InstructorDashboard from '@/pages/InstructorPage/InstructorDashboard'
 import CreateTest from '@/pages/InstructorPage/CreateTest'
 import ManageQuestions from '@/pages/InstructorPage/ManageQuestions'
+import StudentDashboard from '@/pages/StudentPage/StudentDashboard'
+import BeginTest from '@/pages/StudentPage/BeginTest'
+import StudentTest from '@/pages/StudentPage/StudentTest'
+
 export default function MainRoutes() {
   return (
     <>
@@ -27,9 +31,10 @@ export default function MainRoutes() {
           <Route path='create-test' element={<CreateTest />} />
           <Route path='test/:testId/questions' element={<ManageQuestions />} />
         </Route>
-        {/* <Route path='/student' element={<StudentDashboard />}>
-          <Route path='test/:testId' element={<StudentTest />} />
-        </Route> */}
+        <Route path='/student' element={<StudentDashboard />}>
+          <Route path='test/:testId/begin' element={<BeginTest />} />
+          <Route path='test/:testId/take' element={<StudentTest />} />
+        </Route>
 
         {/* <Route path='/auth' element={<AuthPage />}>
           {' '}
