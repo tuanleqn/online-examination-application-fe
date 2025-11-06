@@ -1,10 +1,26 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Clock, Save, Send } from 'lucide-react'
+import { AlertTriangle, Clock, Save, Send, X } from 'lucide-react'
 
 const StudentTest = () => {
   const navigate = useNavigate()
-  const [timeLeft, setTimeLeft] = useState(3600) // 60 minutes in seconds
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  // Total test time in seconds (60 minutes)
+  const TOTAL_TIME = 3600
+
+  // Persist end time so timer continues across refresh. Key is scoped by pathname.
+  const endTimeKey = `studentTest_end_${window.location.pathname}`
+
+  const getOrCreateEndTime = () => {
+    const stored = localStorage.getItem(endTimeKey)
+    if (stored) return parseInt(stored, 10)
+    const end = Date.now() + TOTAL_TIME * 1000
+    localStorage.setItem(endTimeKey, String(end))
+    return end
+  }
+
+  const initialEnd = getOrCreateEndTime()
+  const [timeLeft, setTimeLeft] = useState(() => Math.max(0, Math.round((initialEnd - Date.now()) / 1000)))
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
 
@@ -25,23 +41,37 @@ const StudentTest = () => {
     },
     {
       id: 'q3',
-      type: 'short-answer',
-      text: 'Explain the difference between stack and queue data structures.',
-      points: 10
+      type: 'mcq',
+      text: 'Which data structure uses LIFO (Last In First Out) principle?',
+      options: ['Queue', 'Stack', 'Tree', 'Graph'],
+      points: 5
+    },
+    {
+      id: 'q4',
+      type: 'true-false',
+      text: 'React is a JavaScript framework.',
+      points: 3
+    },
+    {
+      id: 'q5',
+      type: 'mcq',
+      text: 'What is the correct way to declare a TypeScript interface?',
+      options: ['class MyInterface {}', 'interface MyInterface {}', 'type MyInterface = {}', 'const MyInterface = {}'],
+      points: 5
     }
   ]
 
   // Timer logic
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          handleSubmit()
-          return 0
-        }
-        return prev - 1
-      })
+      const stored = localStorage.getItem(endTimeKey)
+      const end = stored ? parseInt(stored, 10) : Date.now() + TOTAL_TIME * 1000
+      const t = Math.max(0, Math.round((end - Date.now()) / 1000))
+      setTimeLeft(t)
+      if (t <= 0) {
+        clearInterval(timer)
+        handleConfirmSubmit()
+      }
     }, 1000)
 
     return () => clearInterval(timer)
@@ -63,12 +93,24 @@ const StudentTest = () => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }))
   }
 
-  const handleSubmit = () => {
-    navigate('/student/test/confirmation')
+  const handleSubmitClick = () => {
+    setShowConfirmModal(true)
+  }
+
+  const handleConfirmSubmit = () => {
+    // clear persisted end time so subsequent visits start fresh
+    localStorage.removeItem(endTimeKey)
+    // Navigate to confirmation page, preserving test ID from current path
+    const testId = window.location.pathname.split('/').pop()
+    navigate(`/test/${testId}/confirmation`)
+  }
+
+  const handleCancelSubmit = () => {
+    setShowConfirmModal(false)
   }
 
   // Calculate timer color
-  const totalTime = 3600
+  const totalTime = TOTAL_TIME
   const timePercentage = (timeLeft / totalTime) * 100
   let timerColor = 'text-timer-safe'
   let timerBg = 'bg-success-light'
@@ -97,7 +139,9 @@ const StudentTest = () => {
           <div className='flex items-center justify-between'>
             <div>
               <h1 className='text-xl font-bold'>Midterm Exam - Data Structures</h1>
-              <p className='text-sm text-muted-foreground'>20 questions • 100 points</p>
+              <p className='text-sm text-muted-foreground'>
+                {questions.length} questions • {questions.reduce((sum, q) => sum + q.points, 0)} points
+              </p>
             </div>
             <div className='flex items-center gap-4'>
               {lastSaved && (
@@ -175,15 +219,6 @@ const StudentTest = () => {
                     ))}
                   </div>
                 )}
-
-                {question.type === 'short-answer' && (
-                  <textarea
-                    value={answers[question.id] || ''}
-                    onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                    placeholder='Type your answer here...'
-                    className='w-full min-h-32 px-4 py-3 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring resize-y'
-                  />
-                )}
               </div>
             </div>
           ))}
@@ -195,7 +230,7 @@ const StudentTest = () => {
                 {Object.keys(answers).length} of {questions.length} questions answered
               </p>
               <button
-                onClick={handleSubmit}
+                onClick={handleSubmitClick}
                 className='flex items-center gap-2 px-6 py-3 bg-success text-success-foreground rounded-lg hover:opacity-90 transition-opacity font-medium'
               >
                 <Send className='h-4 w-4' />
@@ -205,6 +240,54 @@ const StudentTest = () => {
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className='fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm'>
+          <div className='bg-card border border-border rounded-2xl shadow-2xl max-w-md w-full mx-4 animate-in fade-in zoom-in duration-200'>
+            <div className='p-6'>
+              <div className='flex items-start gap-4'>
+                <div className='shrink-0 w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center'>
+                  <AlertTriangle className='h-6 w-6 text-warning' />
+                </div>
+                <div className='flex-1'>
+                  <h3 className='text-lg font-semibold text-foreground mb-2'>Submit Test?</h3>
+                  <p className='text-sm text-muted-foreground mb-1'>
+                    {Object.keys(answers).length === questions.length
+                      ? 'You have answered all questions.'
+                      : `You have ${questions.length - Object.keys(answers).length} unanswered question${
+                          questions.length - Object.keys(answers).length > 1 ? 's' : ''
+                        }.`}
+                  </p>
+                  <p className='text-sm text-muted-foreground'>
+                    Are you sure you want to submit this test? You cannot change your answers after submission.
+                  </p>
+                </div>
+                <button
+                  onClick={handleCancelSubmit}
+                  className='shrink-0 p-1 text-muted-foreground hover:text-foreground transition-colors'
+                >
+                  <X className='h-5 w-5' />
+                </button>
+              </div>
+            </div>
+            <div className='border-t border-border p-4 flex gap-3'>
+              <button
+                onClick={handleCancelSubmit}
+                className='flex-1 px-4 py-2.5 border border-border text-foreground rounded-lg hover:bg-muted/50 transition-colors font-medium'
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmSubmit}
+                className='flex-1 px-4 py-2.5 border border-border text-foreground hover:bg-muted/50 bg-success text-success-foreground rounded-lg hover:opacity-90 transition-opacity font-medium'
+              >
+                Submit Test
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
