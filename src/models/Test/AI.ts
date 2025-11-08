@@ -1,6 +1,5 @@
 export interface AssessmentRequest {
-  testId: number
-  questionId: number
-  answer: number
-  studentId: number
+  question_text: string
+  incorrect_answer_text: string
+  correct_answer_text: string
 }

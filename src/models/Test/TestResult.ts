@@ -40,3 +40,12 @@ export interface StudentSubmissionResponse {
   maxScore: number
   questionResultDetails: QuestionResultDetail[]
 }
+
+export interface PerformanceSummary {
+  testId: number
+  testName: string
+  maxScore: number
+  minScore: number
+  averageScore: number
+  totalSubmissions: number
+}

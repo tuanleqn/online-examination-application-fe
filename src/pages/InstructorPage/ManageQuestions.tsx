@@ -246,12 +246,30 @@ const ManageQuestions = () => {
         questionCount: questions.length,
         submisssionCount: 0,
         creatorId: 1,
-        questions: questions.map((q, index) => ({
-          questionId: index + 1,
+        questions: questions.map((q) => ({
           questionText: q.text,
           score: q.points,
-          composer: null
-        }))
+          answers: q.options
+            ? q.options.map((option, index) => ({
+                answerId: index + 1,
+                answerText: option,
+                correctAnswer: option === q.correctAnswer
+              }))
+            : [
+                {
+                  answerId: 1,
+                  answerText: 'True',
+                  correctAnswer: q.correctAnswer === 'True'
+                },
+                {
+                  answerId: 2,
+                  answerText: 'False',
+                  correctAnswer: q.correctAnswer === 'False'
+                }
+              ]
+        })),
+        releasedAnswer: (test as any)?.releasedAnswer || false,
+        releasedScore: (test as any)?.releasedScore || false
       }
 
       const response = await testsApi.createTest(apiPayload)

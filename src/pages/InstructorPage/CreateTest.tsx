@@ -10,7 +10,9 @@ const CreateTest = () => {
     duration: '',
     startTime: '',
     endTime: '',
-    className: ''
+    className: '',
+    releasedAnswer: false,
+    releasedScore: false
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -70,7 +72,9 @@ const CreateTest = () => {
       questions: [],
       status: 'inactive' as const,
       createdBy: '',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      releasedAnswer: formData.releasedAnswer,
+      releasedScore: formData.releasedScore
     }
 
     localStorage.setItem('tempTest', JSON.stringify(newTest))
@@ -216,6 +220,37 @@ const CreateTest = () => {
                 placeholder='e.g., CS101 - Section A'
                 className='w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-colors'
               />
+            </div>
+
+            {/* Release Options */}
+            <div className='space-y-4'>
+              <div className='flex items-center gap-3'>
+                <input
+                  type='checkbox'
+                  id='releasedAnswer'
+                  name='releasedAnswer'
+                  checked={formData.releasedAnswer}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, releasedAnswer: e.target.checked }))}
+                  className='w-4 h-4 text-primary rounded focus:ring-2 focus:ring-primary'
+                />
+                <label htmlFor='releasedAnswer' className='text-sm font-medium text-foreground'>
+                  Release answers to students after submission
+                </label>
+              </div>
+
+              <div className='flex items-center gap-3'>
+                <input
+                  type='checkbox'
+                  id='releasedScore'
+                  name='releasedScore'
+                  checked={formData.releasedScore}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, releasedScore: e.target.checked }))}
+                  className='w-4 h-4 text-primary rounded focus:ring-2 focus:ring-primary'
+                />
+                <label htmlFor='releasedScore' className='text-sm font-medium text-foreground'>
+                  Release scores to students immediately
+                </label>
+              </div>
             </div>
 
             {/* Submit Button */}
