@@ -4,6 +4,18 @@ import type { TestVerifyResponse } from '@/models/Test/Question'
 import { fetcher } from './fetcher'
 import type { AxiosResponse } from 'axios'
 
+// Types for auto-save
+export interface StudentAnswerRequest {
+  questionId: number
+  answer: string
+}
+
+export interface SaveProgressRequest {
+  testId: number
+  studentId: number
+  studentAnswerRequests: StudentAnswerRequest[]
+}
+
 
 export const testsApi = {
   getAllTests: async (): Promise<Test[]> => {
@@ -67,10 +79,11 @@ export const testsApi = {
     }
   },
 
-  //Auto_save test draft
-  SaveTestProgress: async (): Promise<any> => {
+  // Auto-save test progress
+  SaveTestProgress: async (data: SaveProgressRequest): Promise<boolean> => {
     try {
-      const response: AxiosResponse<any> = await fetcher.post(`/progress/submission/`)
+      console.log('Saving test progress:', data)
+      const response: AxiosResponse<boolean> = await fetcher.post(`/progress/submission`, data)
       return response.data
     } catch (error) {
       console.error('Error saving test progress:', error)
@@ -78,22 +91,31 @@ export const testsApi = {
     }
   },
 
-  // Get current test draft
-  GetTestProgress: async (Query: { StudentId: number, testId: number }): Promise<any> => {
-  try {
-    const response: AxiosResponse<any> = await fetcher.get(
-      `/progress/current-progress`, 
-      {
-        params: {
-          studentUserId: Query.StudentId, 
-          testId: Query.testId
+  // Get current test progress
+  GetTestProgress: async (params: { studentUserId: number; testId: number }): Promise<StudentSubmissionResponse> => {
+    try {
+      console.log('Fetching test progress:', params)
+      
+      // Backend expects: ?studentTestAttemptId={"studentUserId":3,"testId":1}
+      const studentTestAttemptId = JSON.stringify({
+        studentUserId: params.studentUserId,
+        testId: params.testId
+      })
+      
+      console.log('Query param studentTestAttemptId:', studentTestAttemptId)
+      
+      const response: AxiosResponse<StudentSubmissionResponse> = await fetcher.get(
+        `/progress/current-progress`,
+        {
+          params: {
+            studentTestAttemptId: studentTestAttemptId
+          }
         }
-      }
-    );
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching test progress:', error);
-    throw error;
+      )
+      return response.data
+    } catch (error) {
+      console.error('Error fetching test progress:', error)
+      throw error
     }
   },
 

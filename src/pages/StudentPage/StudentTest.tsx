@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, Clock, Save, Send, X } from 'lucide-react'
 import type { TestVerifyResponse } from '@/models/Test/Question'
+import type { QuestionResultDetail } from '@/models/Test/TestResult'
+import { testsApi } from '@/apis/tests.api'
 
 const StudentTest = () => {
   const navigate = useNavigate()
@@ -12,41 +14,151 @@ const StudentTest = () => {
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [timeLeft, setTimeLeft] = useState(0)
+  const [isSaving, setIsSaving] = useState(false)
+  const [studentId, setStudentId] = useState<number | null>(null)
+  const [showRestoredMessage, setShowRestoredMessage] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
   // Load test data from session storage
   useEffect(() => {
-    if (!testId) {
-      navigate('/student')
-      return
+    const loadTestData = async () => {
+      if (!testId) {
+        navigate('/student')
+        return
+      }
+
+      try {
+        setLoading(true)
+
+        // Get student ID from localStorage
+        const userStr = localStorage.getItem('user')
+        if (!userStr) {
+          console.error('User not found')
+          navigate('/student')
+          return
+        }
+
+        const user = JSON.parse(userStr)
+        const userId = user.id
+        setStudentId(userId)
+
+        // Load test data from session - try both numeric ID and passcode
+        let sessionData = sessionStorage.getItem(`test-session-${testId}`)
+        
+        // If not found, try to find by checking all session keys
+        if (!sessionData) {
+          console.log('🔍 Session not found with key:', `test-session-${testId}`)
+          console.log('🔍 Searching in all sessionStorage keys...')
+          
+          // List all test-session keys
+          for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i)
+            if (key && key.startsWith('test-session-')) {
+              console.log('Found session key:', key)
+              const data = sessionStorage.getItem(key)
+              if (data) {
+                const parsed = JSON.parse(data)
+                // Check if this session matches current test (by testId or passcode)
+                if (parsed.testId == testId || parsed.passcode == testId || parsed.testData?.testId == testId) {
+                  console.log('✅ Found matching session!', parsed)
+                  sessionData = data
+                  break
+                }
+              }
+            }
+          }
+        }
+        
+        if (!sessionData) {
+          console.error('❌ No test session found for testId:', testId)
+          navigate('/student')
+          return
+        }
+
+        const session = JSON.parse(sessionData)
+        setTestData(session.testData)
+
+        console.log('📦 Test data loaded:', {
+          testData: session.testData,
+          testId: session.testData.testId,
+          testIdFromSession: session.testId
+        })
+
+        // Initialize timer
+        const endTimeKey = `studentTest_end_${testId}`
+        const storedEndTime = localStorage.getItem(endTimeKey)
+
+        if (storedEndTime) {
+          // Continue from stored time
+          const remainingTime = Math.max(0, Math.round((parseInt(storedEndTime, 10) - Date.now()) / 1000))
+          setTimeLeft(remainingTime)
+        } else {
+          // Start new timer
+          const durationInSeconds = session.testData.duration * 60
+          const endTime = Date.now() + durationInSeconds * 1000
+          localStorage.setItem(endTimeKey, String(endTime))
+          setTimeLeft(durationInSeconds)
+        }
+
+        // Try to restore previous answers from API
+        try {
+          console.log('🔄 Attempting to restore progress for:', { userId, testId, testIdType: typeof testId })
+          
+          // Get the actual numeric testId - try multiple sources
+          const numericTestId = session.testData.testId || session.testId || parseInt(testId)
+          console.log('📌 Using testId:', numericTestId, 'Type:', typeof numericTestId)
+          
+          // Skip if testId is still invalid
+          if (!numericTestId || isNaN(numericTestId)) {
+            console.log('⚠️ Invalid testId, skipping restore')
+          } else {
+            const progress = await testsApi.GetTestProgress({
+              studentUserId: userId,
+              testId: numericTestId
+            })
+
+            console.log('📥 Progress response:', progress)
+
+            if (progress && progress.questionResultDetails) {
+              const restoredAnswers: Record<string, string> = {}
+
+              progress.questionResultDetails.forEach((question: QuestionResultDetail) => {
+                console.log('📋 Processing question:', question.questionId, 'Student answer:', question.studentAnswer)
+                
+                if (question.studentAnswer && question.studentAnswer.length > 0) {
+                  // Store the first answer ID as string
+                  restoredAnswers[question.questionId.toString()] = question.studentAnswer[0].answerId.toString()
+                }
+              })
+
+              console.log('✅ Restored answers object:', restoredAnswers)
+
+              if (Object.keys(restoredAnswers).length > 0) {
+                setAnswers(restoredAnswers)
+                setShowRestoredMessage(true)
+                console.log(`✅ Successfully restored ${Object.keys(restoredAnswers).length} previous answers`)
+                
+                // Hide message after 8 seconds
+                setTimeout(() => setShowRestoredMessage(false), 8000)
+              } else {
+                console.log('⚠️ No answers found in progress data')
+              }
+            } else {
+              console.log('⚠️ No questionResultDetails in progress')
+            }
+          }
+        } catch (_err) {
+          console.log('❌ No previous progress found or error:', _err)
+        }
+      } catch (error) {
+        console.error('Error loading test:', error)
+        navigate('/student')
+      } finally {
+        setLoading(false)
+      }
     }
 
-    const sessionData = sessionStorage.getItem(`test-session-${testId}`)
-    if (!sessionData) {
-      console.error('No test session found')
-      navigate('/student')
-      return
-    }
-
-    const session = JSON.parse(sessionData)
-    setTestData(session.testData)
-
-    // Initialize timer
-    const endTimeKey = `studentTest_end_${testId}`
-    const storedEndTime = localStorage.getItem(endTimeKey)
-    
-    if (storedEndTime) {
-      // Continue from stored time
-      const remainingTime = Math.max(0, Math.round((parseInt(storedEndTime, 10) - Date.now()) / 1000))
-      setTimeLeft(remainingTime)
-    } else {
-      // Start new timer
-      const durationInSeconds = session.testData.duration * 60
-      const endTime = Date.now() + durationInSeconds * 1000
-      localStorage.setItem(endTimeKey, String(endTime))
-      setTimeLeft(durationInSeconds)
-    }
-
-    setLoading(false)
+    loadTestData()
   }, [testId, navigate])
 
   // Timer logic
@@ -72,17 +184,73 @@ const StudentTest = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [testData, testId])
 
-  // Auto-save logic
+  // Auto-save logic - save every 1 minute (60 seconds) as draft
   useEffect(() => {
-    const autoSave = setInterval(() => {
-      if (Object.keys(answers).length > 0) {
-        // Simulate save
-        setLastSaved(new Date())
-      }
-    }, 30000) // 30 seconds
+    if (!testData || !studentId || !testId) return
 
-    return () => clearInterval(autoSave)
+    const autoSaveInterval = setInterval(async () => {
+      // Only auto-save if there are answers
+      if (Object.keys(answers).length > 0) {
+        try {
+          setIsSaving(true)
+          
+          // Convert answers to API format
+          const studentAnswerRequests = Object.entries(answers).map(([questionId, answerId]) => ({
+            questionId: parseInt(questionId),
+            answer: answerId
+          }))
+
+          // Use numeric testId from testData, not the URL param
+          const numericTestId = testData.testId || parseInt(testId)
+
+          console.log('💾 Auto-saving progress:', {
+            testId: numericTestId,
+            studentId,
+            answersCount: studentAnswerRequests.length,
+            studentAnswerRequests
+          })
+
+          // Save as draft to prevent data loss
+          const result = await testsApi.SaveTestProgress({
+            testId: numericTestId,
+            studentId: studentId,
+            studentAnswerRequests
+          })
+
+          setLastSaved(new Date())
+          setHasUnsavedChanges(false) // Mark as saved
+          console.log('✅ Auto-save successful at:', new Date().toLocaleTimeString(), 'Result:', result)
+        } catch (error) {
+          console.error('❌ Auto-save failed:', error)
+          // Don't show error to user, just log it
+        } finally {
+          setIsSaving(false)
+        }
+      } else {
+        console.log('⏭️ Skipping auto-save: No answers yet')
+      }
+    }, 60000) // 60 seconds = 1 minute
+
+    return () => clearInterval(autoSaveInterval)
+  }, [answers, testData, studentId, testId])
+
+  // Track unsaved changes
+  useEffect(() => {
+    setHasUnsavedChanges(true)
   }, [answers])
+
+  // Warn before leaving page with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges && Object.keys(answers).length > 0) {
+        e.preventDefault()
+        e.returnValue = 'You have unsaved changes. Your progress is auto-saved every minute.'
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges, answers])
 
   const handleAnswerChange = (questionId: string, value: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }))
@@ -92,15 +260,46 @@ const StudentTest = () => {
     setShowConfirmModal(true)
   }
 
-  const handleConfirmSubmit = () => {
-    if (!testId) return
-    
-    // Clear persisted end time so subsequent visits start fresh
-    const endTimeKey = `studentTest_end_${testId}`
-    localStorage.removeItem(endTimeKey)
-    
-    // Navigate to confirmation page
-    navigate(`/student/test/${testId}/confirmation`)
+  const handleConfirmSubmit = async () => {
+    if (!testId || !studentId || !testData) return
+
+    try {
+      // Save final answers before submitting
+      if (Object.keys(answers).length > 0) {
+        const studentAnswerRequests = Object.entries(answers).map(([questionId, answerId]) => ({
+          questionId: parseInt(questionId),
+          answer: answerId
+        }))
+
+        // Use numeric testId from testData, not the URL param (which might be passcode)
+        const numericTestId = testData.testId || parseInt(testId)
+
+        console.log('🚀 Submitting final test:', {
+          testId: numericTestId,
+          studentId,
+          answersCount: studentAnswerRequests.length,
+          studentAnswerRequests
+        })
+
+        await testsApi.SaveTestProgress({
+          testId: numericTestId,
+          studentId: studentId,
+          studentAnswerRequests
+        })
+
+        console.log('✅ Final submission saved successfully')
+      }
+
+      // Clear persisted end time
+      const endTimeKey = `studentTest_end_${testId}`
+      localStorage.removeItem(endTimeKey)
+
+      // Navigate to confirmation page
+      navigate(`/student/test/${testId}/confirmation`)
+    } catch (error) {
+      console.error('❌ Error submitting test:', error)
+      alert('Failed to submit test. Please try again.')
+    }
   }
 
   const handleCancelSubmit = () => {
@@ -155,12 +354,29 @@ const StudentTest = () => {
               </p>
             </div>
             <div className='flex items-center gap-4'>
-              {lastSaved && (
-                <div className='flex items-center gap-2 text-sm text-muted-foreground'>
-                  <Save className='h-4 w-4' />
-                  Saved at {lastSaved.toLocaleTimeString()}
-                </div>
-              )}
+              {/* Auto-save status */}
+              <div className='flex items-center gap-3'>
+                {isSaving && (
+                  <div className='flex items-center gap-2 text-sm text-primary'>
+                    <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-primary'></div>
+                    <span>Saving...</span>
+                  </div>
+                )}
+                {!isSaving && lastSaved && (
+                  <div className='flex items-center gap-2 text-sm text-success'>
+                    <Save className='h-4 w-4' />
+                    <span>Saved {lastSaved.toLocaleTimeString()}</span>
+                  </div>
+                )}
+                {!isSaving && !lastSaved && (
+                  <div className='flex items-center gap-2 text-sm text-muted-foreground'>
+                    <Save className='h-4 w-4' />
+                    <span>Auto-save every 1 min</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Timer */}
               <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${timerBg} ${pulseClass}`}>
                 <Clock className={`h-5 w-5 ${timerColor}`} />
                 <span className={`text-2xl font-bold tabular-nums ${timerColor}`}>{formatTime(timeLeft)}</span>
@@ -169,6 +385,23 @@ const StudentTest = () => {
           </div>
         </div>
       </header>
+
+      {/* Restored Message */}
+      {showRestoredMessage && (
+        <div className='bg-success/10 border-b border-success/20'>
+          <div className='container mx-auto px-4 py-3'>
+            <div className='flex items-center gap-3'>
+              <Save className='h-5 w-5 text-success' />
+              <div>
+                <p className='text-sm font-semibold text-success'>Previous progress restored!</p>
+                <p className='text-xs text-success/80'>
+                  Your answers from the last auto-save have been loaded. Continue where you left off.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Questions */}
       <div className='container mx-auto px-4 py-8'>

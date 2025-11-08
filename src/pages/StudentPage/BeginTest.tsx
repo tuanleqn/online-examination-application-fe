@@ -2,7 +2,6 @@ import { ArrowLeft, Clock, FileText, AlertTriangle } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { TestVerifyResponse } from '@/models/Test/Question'
-import { testsApi } from '@/apis/tests.api'
 
 const BeginTest = () => {
   const { testId } = useParams<{ testId: string }>()
@@ -13,6 +12,7 @@ const BeginTest = () => {
   useEffect(() => {
     const loadTestByPasscode = async () => {
       if (!testId) {
+        console.error('❌ No testId in URL')
         navigate('/student')
         return
       }
@@ -22,23 +22,24 @@ const BeginTest = () => {
         
         // First, try to get from sessionStorage
         const pendingTest = sessionStorage.getItem('pending-test')
+        console.log('🔍 Checking pending-test in sessionStorage:', pendingTest ? 'Found' : 'Not found')
+        
         if (pendingTest) {
           const testData = JSON.parse(pendingTest)
-          console.log('Loaded test from session:', testData)
+          console.log('✅ Loaded test from session:', testData)
           setTest(testData)
-          sessionStorage.removeItem('pending-test') // Clean up
+          // Don't remove immediately - wait until component unmounts or user starts test
           setLoading(false)
           return
         }
         
-        // If not in session, testId might be the passcode, try to call API
-        console.log('Loading test from API with identifier:', testId)
-        const testData = await testsApi.VerifyTestPasscode(testId)
-        testData.passcode = testId
-        console.log('Test data loaded:', testData)
-        setTest(testData)
+        // If not in session, we cannot proceed - user must start from dashboard
+        console.error('❌ No pending test data found. Redirecting to dashboard...')
+        alert('Test data not found. Please enter the passcode again.')
+        navigate('/student')
       } catch (err) {
-        console.error('Error loading test:', err)
+        console.error('❌ Error loading test:', err)
+        alert('Failed to load test. Redirecting back...')
         setTimeout(() => navigate('/student'), 2000)
       } finally {
         setLoading(false)
@@ -71,6 +72,9 @@ const BeginTest = () => {
     
     console.log('Starting test with session info:', sessionInfo)
     sessionStorage.setItem(`test-session-${testIdentifier}`, JSON.stringify(sessionInfo))
+    
+    // Clean up pending-test now that we've created the session
+    sessionStorage.removeItem('pending-test')
 
     // Navigate to test taking page
     navigate(`/student/test/${testIdentifier}/take`)
