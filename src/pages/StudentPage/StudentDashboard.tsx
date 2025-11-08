@@ -1,15 +1,48 @@
 import { AlertCircle, ArrowLeft, CheckCircle2, Key } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import type { Test } from '@/models/Test/Test'
+import type { TestResultResponse } from '@/models/Test/TestResult'
+import { testsApi } from '@/apis/tests.api'
 
 const StudentDashboard = () => {
   const [passcode, setPasscode] = useState('')
   const [error, setError] = useState('')
+  const [recentResults, setRecentResults] = useState<TestResultResponse[]>([])
+  const [loading, setLoading] = useState(true)
   const location = useLocation()
   const navigate = useNavigate()
   const isTestPage = location.pathname.includes('/test/')
   const isStudenResultPage = location.pathname.includes('/result')
+
+  // Fetch student's test results
+  useEffect(() => {
+    const fetchStudentTests = async () => {
+      try {
+        setLoading(true)
+        
+        // Get student ID from localStorage
+        const userStr = localStorage.getItem('user')
+        if (!userStr) {
+          console.error('User not found in localStorage')
+          setLoading(false)
+          return
+        }
+        
+        const user = JSON.parse(userStr)
+        const studentId = user.id
+        
+        const results = await testsApi.getTestsByStudentId(studentId)
+        setRecentResults(results)
+      } catch (error) {
+        console.error('Error fetching student tests:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchStudentTests()
+  }, [])
 
   if (isTestPage) return <Outlet />
   if (isStudenResultPage) return <Outlet />
@@ -115,7 +148,7 @@ const StudentDashboard = () => {
                 </div>
                 {error && (
                   <div className='flex items-center gap-2 px-4 py-3 bg-danger/10 border border-danger/20 text-danger rounded-lg'>
-                    <AlertCircle className='h-5 w-5 flex-shrink-0' />
+                    <AlertCircle className='h-5 w-5 shrink-0' />
                     <p className='text-sm font-medium'>{error}</p>
                   </div>
                 )}
@@ -125,63 +158,64 @@ const StudentDashboard = () => {
             {/* Recent Results */}
             <div>
               <h2 className='text-xl font-bold mb-4'>Recent Results</h2>
-              <div className='space-y-4'>
-                {[
-                  {
-                    testId: '213',
-                    title: 'Quiz 2',
-                    subject: 'Data Structures',
-                    score: 85,
-                    total: 100,
-                    status: 'passed'
-                  },
-                  {
-                    testId: '214',
-                    title: 'Assignment 1',
-                    subject: 'Algorithms',
-                    score: 72,
-                    total: 100,
-                    status: 'passed'
-                  },
-                  {
-                    testId: '215',
-                    title: 'Quiz 1',
-                    subject: 'Data Structures',
-                    score: 58,
-                    total: 100,
-                    status: 'failed'
-                  }
-                ].map((result, i) => (
-                  <div key={i} className='bg-card border border-border rounded-xl p-6 card-hover'>
-                    <div className='flex items-start justify-between'>
-                      <div>
-                        <h3 className='font-semibold text-lg mb-1'>{result.title}</h3>
-                        <p className='text-sm text-muted-foreground mb-2'>{result.subject}</p>
-                        <div className='flex items-center gap-2'>
-                          <span className='text-2xl font-bold'>{result.score}</span>
-                          <span className='text-muted-foreground'>/ {result.total}</span>
-                          <span className='ml-2 px-2 py-1 bg-muted text-sm font-medium rounded'>
-                            {Math.round((result.score / result.total) * 100)}%
-                          </span>
+              {loading ? (
+                <div className='bg-card border border-border rounded-xl p-8 text-center'>
+                  <p className='text-muted-foreground'>Loading results...</p>
+                </div>
+              ) : recentResults.length === 0 ? (
+                <div className='bg-card border border-border rounded-xl p-8 text-center'>
+                  <p className='text-muted-foreground'>No test results yet</p>
+                </div>
+              ) : (
+                <div className='space-y-4'>
+                  {recentResults.map((result, i) => {
+                    const percentage = result.maxScore > 0 ? Math.round((result.score / result.maxScore) * 100) : 0
+                    const isPassed = percentage >= 50 // You can adjust this threshold
+
+                    return (
+                      <div key={i} className='bg-card border border-border rounded-xl p-6 card-hover'>
+                        <div className='flex items-start justify-between'>
+                          <div>
+                            <h3 className='font-semibold text-lg mb-1'>{result.testName}</h3>
+                            <p className='text-sm text-muted-foreground mb-2'>
+                              Duration: {result.duration} • Questions: {result.totalQuestions}
+                            </p>
+                            <div className='flex items-center gap-2'>
+                              {result.releasedScore ? (
+                                <>
+                                  <span className='text-2xl font-bold'>{result.score}</span>
+                                  <span className='text-muted-foreground'>/ {result.maxScore}</span>
+                                  <span className='ml-2 px-2 py-1 bg-muted text-sm font-medium rounded'>
+                                    {percentage}%
+                                  </span>
+                                </>
+                              ) : (
+                                <span className='text-sm text-muted-foreground italic'>Score not released yet</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className='flex flex-col items-end gap-2'>
+                            {result.releasedScore &&
+                              (isPassed ? (
+                                <CheckCircle2 className='h-6 w-6 text-success' />
+                              ) : (
+                                <AlertCircle className='h-6 w-6 text-danger' />
+                              ))}
+                            {result.releasedAnswer && (
+                              <Link
+                                to={`/student/test/${result.testId}/result`}
+                                className='text-sm text-primary font-medium hover:underline'
+                              >
+                                View Details
+                              </Link>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className='flex flex-col items-end gap-2'>
-                        {result.status === 'passed' ? (
-                          <CheckCircle2 className='h-6 w-6 text-success' />
-                        ) : (
-                          <AlertCircle className='h-6 w-6 text-danger' />
-                        )}
-                        <Link
-                          to={`/student/test/${result.testId}/result`}
-                          className='text-sm text-primary font-medium hover:underline'
-                        >
-                          View Details
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
