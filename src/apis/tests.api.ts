@@ -1,5 +1,6 @@
 import type { Test } from '@/models/Test/Test'
 import type { TestResultResponse, StudentSubmissionResponse } from '@/models/Test/TestResult'
+import type { TestVerifyResponse } from '@/models/Test/Question'
 import { fetcher } from './fetcher'
 import type { AxiosResponse } from 'axios'
 
@@ -97,11 +98,15 @@ export const testsApi = {
   },
 
   //Verify passcode for test
-  VerifyTestPasscode: async (passcode: string): Promise<any> => {
+  VerifyTestPasscode: async (passcode: string): Promise<TestVerifyResponse> => {
     try {
-      const response: AxiosResponse<any> = await fetcher.get(`/test/verify_passcode/${passcode}`, {
-params: { passcode }
-      })
+      console.log('API Call: Verifying passcode:', passcode)
+      const url = `/test/verify_passcode/${passcode}`
+      console.log('Full URL:', url)
+      
+      const response: AxiosResponse<TestVerifyResponse> = await fetcher.get(url)
+      console.log('API Response:', response.data)
+      
       return response.data
     } catch (error) {
       console.error('Error verifying test passcode:', error)

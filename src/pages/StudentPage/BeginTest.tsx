@@ -1,49 +1,79 @@
 import { ArrowLeft, Clock, FileText, AlertTriangle } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import type { Test } from '@/models/Test/Test'
+import type { TestVerifyResponse } from '@/models/Test/Question'
+import { testsApi } from '@/apis/tests.api'
 
 const BeginTest = () => {
-  const { passcode } = useParams<{ passcode: string }>()
+  const { testId } = useParams<{ testId: string }>()
   const navigate = useNavigate()
-  const [test, setTest] = useState<Test | null>(null)
+  const [test, setTest] = useState<TestVerifyResponse | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Mock: Load test by passcode
-    // TODO: Replace with API call
-    const loadTestByPasscode = () => {
-      // Mock data - replace with API call
-      const tests: Test[] = JSON.parse(localStorage.getItem('tests') || '[]')
-      const foundTest = tests.find((t) => t.passCode === passcode)
-
-      if (!foundTest) {
+    const loadTestByPasscode = async () => {
+      if (!testId) {
         navigate('/student')
         return
       }
 
-      setTest(foundTest)
-      setLoading(false)
+      try {
+        setLoading(true)
+        
+        // First, try to get from sessionStorage
+        const pendingTest = sessionStorage.getItem('pending-test')
+        if (pendingTest) {
+          const testData = JSON.parse(pendingTest)
+          console.log('Loaded test from session:', testData)
+          setTest(testData)
+          sessionStorage.removeItem('pending-test') // Clean up
+          setLoading(false)
+          return
+        }
+        
+        // If not in session, testId might be the passcode, try to call API
+        console.log('Loading test from API with identifier:', testId)
+        const testData = await testsApi.VerifyTestPasscode(testId)
+        testData.passcode = testId
+        console.log('Test data loaded:', testData)
+        setTest(testData)
+      } catch (err) {
+        console.error('Error loading test:', err)
+        setTimeout(() => navigate('/student'), 2000)
+      } finally {
+        setLoading(false)
+      }
     }
 
     loadTestByPasscode()
-  }, [passcode, navigate])
+  }, [testId, navigate])
 
   const handleStartTest = () => {
     if (!test) return
 
+    // Get testId from test object or use the URL param as fallback
+    const testIdentifier = test.testId || testId
+    
+    if (!testIdentifier) {
+      console.error('No test identifier available')
+      return
+    }
+
     // Store test session info
     const sessionInfo = {
-      testId: test.testId,
-      passcode: passcode,
+      testId: testIdentifier,
+      passcode: test.passcode || testId,
       startedAt: new Date().toISOString(),
       currentQuestionIndex: 0,
-      answers: {}
+      answers: {},
+      testData: test
     }
-    sessionStorage.setItem(`test-session-${test.testId}`, JSON.stringify(sessionInfo))
+    
+    console.log('Starting test with session info:', sessionInfo)
+    sessionStorage.setItem(`test-session-${testIdentifier}`, JSON.stringify(sessionInfo))
 
     // Navigate to test taking page
-    navigate(`/student/test/${test.testId}/take`)
+    navigate(`/student/test/${testIdentifier}/take`)
   }
 
   if (loading) {
@@ -97,17 +127,10 @@ const BeginTest = () => {
                 <FileText className='h-6 w-6 text-primary' />
                 <div>
                   <p className='text-sm text-muted-foreground'>Questions</p>
-                  <p className='font-semibold'>{test.questions || 0} questions</p>
+                  <p className='font-semibold'>{test.totalQuestions} questions</p>
                 </div>
               </div>
             </div>
-
-            {test.classId && (
-              <div className='mb-6'>
-                <p className='text-sm text-muted-foreground'>Class</p>
-                <p className='font-medium'>{test.classId}</p>
-              </div>
-            )}
           </div>
 
           {/* Instructions Card */}
@@ -139,7 +162,7 @@ const BeginTest = () => {
 
           {/* Warning */}
           <div className='flex items-start gap-3 p-4 bg-warning/10 border border-warning/20 rounded-lg mb-6'>
-            <AlertTriangle className='h-6 w-6 text-warning flex-shrink-0 mt-0.5' />
+            <AlertTriangle className='h-6 w-6 text-warning shrink-0 mt-0.5' />
             <div>
               <p className='font-semibold text-foreground mb-1'>Important</p>
               <p className='text-sm text-muted-foreground'>

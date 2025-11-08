@@ -74,6 +74,22 @@
   --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
   --sidebar-border: oklch(0.929 0.013 255.508);
   --sidebar-ring: oklch(0.704 0.04 256.788);
+  
+  /* Timer colors */
+  --timer-safe: oklch(0.6 0.15 145);
+  --timer-warning: oklch(0.7 0.2 80);
+  --timer-critical: oklch(0.6 0.2 25);
+  --success-light: oklch(0.95 0.05 145);
+  --warning-light: oklch(0.95 0.08 80);
+  --danger-light: oklch(0.95 0.08 25);
+  
+  /* Status colors */
+  --success: oklch(0.6 0.15 145);
+  --success-foreground: oklch(1 0 0);
+  --warning: oklch(0.7 0.2 80);
+  --warning-foreground: oklch(0.2 0 0);
+  --danger: oklch(0.6 0.2 25);
+  --danger-foreground: oklch(1 0 0);
 }
 
 .dark {
@@ -116,5 +132,78 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  /* Timer colors */
+  .text-timer-safe {
+    color: var(--timer-safe);
+  }
+  .text-timer-warning {
+    color: var(--timer-warning);
+  }
+  .text-timer-critical {
+    color: var(--timer-critical);
+  }
+  .bg-success-light {
+    background-color: var(--success-light);
+  }
+  .bg-warning-light {
+    background-color: var(--warning-light);
+  }
+  .bg-danger-light {
+    background-color: var(--danger-light);
+  }
+  
+  /* Status colors */
+  .bg-success {
+    background-color: var(--success);
+  }
+  .text-success {
+    color: var(--success);
+  }
+  .text-success-foreground {
+    color: var(--success-foreground);
+  }
+  .bg-warning {
+    background-color: var(--warning);
+  }
+  .text-warning {
+    color: var(--warning);
+  }
+  .text-warning-foreground {
+    color: var(--warning-foreground);
+  }
+  .bg-danger {
+    background-color: var(--danger);
+  }
+  .text-danger {
+    color: var(--danger);
+  }
+  .text-danger-foreground {
+    color: var(--danger-foreground);
+  }
+  .border-danger {
+    border-color: var(--danger);
+  }
+  .border-warning {
+    border-color: var(--warning);
+  }
+  
+  /* Timer pulse animation */
+  .timer-pulse {
+    animation: pulse-timer 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  @keyframes pulse-timer {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.85;
+      transform: scale(1.02);
+    }
   }
 }

@@ -1,81 +1,76 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, Clock, Save, Send, X } from 'lucide-react'
+import type { TestVerifyResponse } from '@/models/Test/Question'
 
 const StudentTest = () => {
   const navigate = useNavigate()
+  const { testId } = useParams<{ testId: string }>()
   const [showConfirmModal, setShowConfirmModal] = useState(false)
-  // Total test time in seconds (60 minutes)
-  const TOTAL_TIME = 3600
-
-  // Persist end time so timer continues across refresh. Key is scoped by pathname.
-  const endTimeKey = `studentTest_end_${window.location.pathname}`
-
-  const getOrCreateEndTime = () => {
-    const stored = localStorage.getItem(endTimeKey)
-    if (stored) return parseInt(stored, 10)
-    const end = Date.now() + TOTAL_TIME * 1000
-    localStorage.setItem(endTimeKey, String(end))
-    return end
-  }
-
-  const initialEnd = getOrCreateEndTime()
-  const [timeLeft, setTimeLeft] = useState(() => Math.max(0, Math.round((initialEnd - Date.now()) / 1000)))
+  const [testData, setTestData] = useState<TestVerifyResponse | null>(null)
+  const [loading, setLoading] = useState(true)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [timeLeft, setTimeLeft] = useState(0)
 
-  // Mock questions
-  const questions = [
-    {
-      id: 'q1',
-      type: 'mcq',
-      text: 'What is the time complexity of binary search?',
-      options: ['O(n)', 'O(log n)', 'O(n²)', 'O(1)'],
-      points: 5
-    },
-    {
-      id: 'q2',
-      type: 'true-false',
-      text: 'Arrays in JavaScript are fixed in size.',
-      points: 3
-    },
-    {
-      id: 'q3',
-      type: 'mcq',
-      text: 'Which data structure uses LIFO (Last In First Out) principle?',
-      options: ['Queue', 'Stack', 'Tree', 'Graph'],
-      points: 5
-    },
-    {
-      id: 'q4',
-      type: 'true-false',
-      text: 'React is a JavaScript framework.',
-      points: 3
-    },
-    {
-      id: 'q5',
-      type: 'mcq',
-      text: 'What is the correct way to declare a TypeScript interface?',
-      options: ['class MyInterface {}', 'interface MyInterface {}', 'type MyInterface = {}', 'const MyInterface = {}'],
-      points: 5
+  // Load test data from session storage
+  useEffect(() => {
+    if (!testId) {
+      navigate('/student')
+      return
     }
-  ]
+
+    const sessionData = sessionStorage.getItem(`test-session-${testId}`)
+    if (!sessionData) {
+      console.error('No test session found')
+      navigate('/student')
+      return
+    }
+
+    const session = JSON.parse(sessionData)
+    setTestData(session.testData)
+
+    // Initialize timer
+    const endTimeKey = `studentTest_end_${testId}`
+    const storedEndTime = localStorage.getItem(endTimeKey)
+    
+    if (storedEndTime) {
+      // Continue from stored time
+      const remainingTime = Math.max(0, Math.round((parseInt(storedEndTime, 10) - Date.now()) / 1000))
+      setTimeLeft(remainingTime)
+    } else {
+      // Start new timer
+      const durationInSeconds = session.testData.duration * 60
+      const endTime = Date.now() + durationInSeconds * 1000
+      localStorage.setItem(endTimeKey, String(endTime))
+      setTimeLeft(durationInSeconds)
+    }
+
+    setLoading(false)
+  }, [testId, navigate])
 
   // Timer logic
   useEffect(() => {
+    if (!testData || !testId) return
+
+    const endTimeKey = `studentTest_end_${testId}`
+    
     const timer = setInterval(() => {
-      const stored = localStorage.getItem(endTimeKey)
-      const end = stored ? parseInt(stored, 10) : Date.now() + TOTAL_TIME * 1000
-      const t = Math.max(0, Math.round((end - Date.now()) / 1000))
-      setTimeLeft(t)
-      if (t <= 0) {
+      const storedEndTime = localStorage.getItem(endTimeKey)
+      if (!storedEndTime) return
+
+      const remainingTime = Math.max(0, Math.round((parseInt(storedEndTime, 10) - Date.now()) / 1000))
+      setTimeLeft(remainingTime)
+      
+      if (remainingTime <= 0) {
         clearInterval(timer)
         handleConfirmSubmit()
       }
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testData, testId])
 
   // Auto-save logic
   useEffect(() => {
@@ -98,19 +93,35 @@ const StudentTest = () => {
   }
 
   const handleConfirmSubmit = () => {
-    // clear persisted end time so subsequent visits start fresh
+    if (!testId) return
+    
+    // Clear persisted end time so subsequent visits start fresh
+    const endTimeKey = `studentTest_end_${testId}`
     localStorage.removeItem(endTimeKey)
-    // Navigate to confirmation page, preserving test ID from current path
-    const testId = window.location.pathname.split('/').pop()
-    navigate(`/test/${testId}/confirmation`)
+    
+    // Navigate to confirmation page
+    navigate(`/student/test/${testId}/confirmation`)
   }
 
   const handleCancelSubmit = () => {
     setShowConfirmModal(false)
   }
 
+  if (loading || !testData) {
+    return (
+      <div className='min-h-screen bg-muted/30 flex items-center justify-center'>
+        <div className='text-center'>
+          <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4'></div>
+          <p className='text-muted-foreground'>Loading test...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const questions = testData.questions
+
   // Calculate timer color
-  const totalTime = TOTAL_TIME
+  const totalTime = testData.duration * 60 // in seconds
   const timePercentage = (timeLeft / totalTime) * 100
   let timerColor = 'text-timer-safe'
   let timerBg = 'bg-success-light'
@@ -138,9 +149,9 @@ const StudentTest = () => {
         <div className='container mx-auto px-4 py-4'>
           <div className='flex items-center justify-between'>
             <div>
-              <h1 className='text-xl font-bold'>Midterm Exam - Data Structures</h1>
+              <h1 className='text-xl font-bold'>{testData.title}</h1>
               <p className='text-sm text-muted-foreground'>
-                {questions.length} questions • {questions.reduce((sum, q) => sum + q.points, 0)} points
+                {testData.totalQuestions} questions • {testData.questions.reduce((sum, q) => sum + q.score, 0)} points
               </p>
             </div>
             <div className='flex items-center gap-4'>
@@ -162,66 +173,84 @@ const StudentTest = () => {
       {/* Questions */}
       <div className='container mx-auto px-4 py-8'>
         <div className='max-w-3xl mx-auto space-y-6'>
-          {questions.map((question, index) => (
-            <div key={question.id} className='bg-card border border-border rounded-xl p-6'>
-              <div className='flex items-start justify-between mb-4'>
-                <div className='flex-1'>
-                  <div className='flex items-center gap-3 mb-2'>
-                    <span className='flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm'>
-                      {index + 1}
-                    </span>
-                    <span className='px-2 py-1 bg-muted text-xs font-medium rounded'>{question.points} pts</span>
+          {questions.map((question, index) => {
+            const hasMultipleAnswers = question.answers.length > 2
+            const isTrueFalse =
+              question.answers.length === 2 &&
+              question.answers.some(
+                (a) => a.answerText.toLowerCase() === 'true' || a.answerText.toLowerCase() === 'false'
+              )
+            
+            return (
+              <div key={question.questionId} className='bg-card border border-border rounded-xl p-6'>
+                <div className='flex items-start justify-between mb-4'>
+                  <div className='flex-1'>
+                    <div className='flex items-center gap-3 mb-2'>
+                      <span className='flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm'>
+                        {index + 1}
+                      </span>
+                      <span className='px-2 py-1 bg-muted text-xs font-medium rounded'>{question.score} pts</span>
+                    </div>
+                    <p className='text-lg font-medium'>{question.questionText}</p>
                   </div>
-                  <p className='text-lg font-medium'>{question.text}</p>
+                </div>
+
+                {/* Answer Input */}
+                <div className='mt-4'>
+                  {hasMultipleAnswers && !isTrueFalse && (
+                    <div className='space-y-2'>
+                      {question.answers.map((answer) => (
+                        <label
+                          key={answer.answerId}
+                          className='flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors'
+                        >
+                          <input
+                            type='radio'
+                            name={`question-${question.questionId}`}
+                            value={answer.answerId.toString()}
+                            checked={answers[question.questionId.toString()] === answer.answerId.toString()}
+                            onChange={(e) => handleAnswerChange(question.questionId.toString(), e.target.value)}
+                            className='w-4 h-4 text-primary'
+                          />
+                          <span>{answer.answerText}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  {isTrueFalse && (
+                    <div className='flex gap-4'>
+                      {question.answers.map((answer) => (
+                        <label
+                          key={answer.answerId}
+                          className='flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors'
+                        >
+                          <input
+                            type='radio'
+                            name={`question-${question.questionId}`}
+                            value={answer.answerId.toString()}
+                            checked={answers[question.questionId.toString()] === answer.answerId.toString()}
+                            onChange={(e) => handleAnswerChange(question.questionId.toString(), e.target.value)}
+                            className='w-4 h-4 text-primary'
+                          />
+                          <span className='font-medium'>{answer.answerText}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  {!hasMultipleAnswers && !isTrueFalse && (
+                    <textarea
+                      value={answers[question.questionId.toString()] || ''}
+                      onChange={(e) => handleAnswerChange(question.questionId.toString(), e.target.value)}
+                      placeholder='Type your answer here...'
+                      className='w-full px-4 py-3 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary min-h-[100px]'
+                    />
+                  )}
                 </div>
               </div>
-
-              {/* Answer Input */}
-              <div className='mt-4'>
-                {question.type === 'mcq' && (
-                  <div className='space-y-2'>
-                    {question.options?.map((option, i) => (
-                      <label
-                        key={i}
-                        className='flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors'
-                      >
-                        <input
-                          type='radio'
-                          name={question.id}
-                          value={option}
-                          checked={answers[question.id] === option}
-                          onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                          className='w-4 h-4 text-primary'
-                        />
-                        <span>{option}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-
-                {question.type === 'true-false' && (
-                  <div className='flex gap-4'>
-                    {['True', 'False'].map((option) => (
-                      <label
-                        key={option}
-                        className='flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors'
-                      >
-                        <input
-                          type='radio'
-                          name={question.id}
-                          value={option}
-                          checked={answers[question.id] === option}
-                          onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                          className='w-4 h-4 text-primary'
-                        />
-                        <span className='font-medium'>{option}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+            )
+          })}
 
           {/* Submit Button */}
           <div className='sticky bottom-4 bg-card border border-border rounded-xl p-4 shadow-lg'>

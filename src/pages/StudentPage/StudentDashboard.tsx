@@ -1,7 +1,6 @@
 import { AlertCircle, ArrowLeft, CheckCircle2, Key } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import type { Test } from '@/models/Test/Test'
 import type { TestResultResponse } from '@/models/Test/TestResult'
 import { testsApi } from '@/apis/tests.api'
 
@@ -47,7 +46,7 @@ const StudentDashboard = () => {
   if (isTestPage) return <Outlet />
   if (isStudenResultPage) return <Outlet />
 
-  const handleAccessTest = () => {
+  const handleAccessTest = async () => {
     setError('')
 
     if (!passcode.trim()) {
@@ -55,34 +54,54 @@ const StudentDashboard = () => {
       return
     }
 
-    // Get all tests from localStorage
-    const tests: Test[] = JSON.parse(localStorage.getItem('tests') || '[]')
-
-    // Find test with matching passcode
-    const test = tests.find((t) => t.title === passcode.trim())
-
-    if (!test) {
-      // setError('Invalid passcode.')
-      // return
+    try {
+      console.log('Verifying passcode:', passcode.trim())
+      
+      // Verify passcode with API
+      const testData = await testsApi.VerifyTestPasscode(passcode.trim())
+      console.log('Test data received:', testData)
+      
+      // Check if testData is valid and has testId
+      if (!testData) {
+        console.error('Invalid test data:', testData)
+        setError('Invalid test data received. Please try again.')
+        return
+      }
+      
+      // Create a clean object to store
+      const testDataToStore = {
+        testId: testData.testId,
+        description: testData.description,
+        title: testData.title,
+        duration: testData.duration,
+        totalQuestions: testData.totalQuestions,
+        questions: testData.questions || [],
+        passcode: passcode.trim()
+      }
+      
+      console.log('Storing test data:', testDataToStore)
+      
+      // Store test data in sessionStorage temporarily
+      sessionStorage.setItem('pending-test', JSON.stringify(testDataToStore))
+      
+      // Navigate to begin test page - use testId if available, otherwise passcode
+      const testIdentifier = testData.testId || passcode.trim()
+      const navigatePath = `/student/test/${testIdentifier}/begin`
+      console.log('Navigating to:', navigatePath)
+      navigate(navigatePath)
+    } catch (err) {
+      console.error('Error verifying passcode:', err)
+      
+      // More detailed error handling
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as { response?: { data?: { message?: string }; status?: number } }
+        const errorMessage =
+          axiosError.response?.data?.message || `Error ${axiosError.response?.status}: Failed to verify passcode`
+        setError(errorMessage)
+      } else {
+        setError('Network error. Please check your connection and try again.')
+      }
     }
-
-    // Check time window
-    // const now = new Date()
-    // const startTime = new Date(test.startTime)
-    // const endTime = new Date(test.endTime)
-
-    // if (now < startTime) {
-    //   // setError('Test has not opened yet.')
-    //   // return
-    // }
-
-    // if (now > endTime) {
-    //   setError('Test is closed.')
-    //   return
-    // }
-
-    // Passcode valid and within time window - navigate to begin test page
-    navigate(`/student/test/${213}/begin`)
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
