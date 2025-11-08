@@ -2,15 +2,18 @@ import { useState, useEffect } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { Plus, ClipboardList, BarChart3, Users, ArrowLeft } from 'lucide-react'
 import { testsApi } from '@/apis/tests.api'
+import type { Test } from '@/models/Test/Test'
 
 const InstructorDashboard = () => {
   const [activeTab, setActiveTab] = useState<'tests' | 'analytics'>('tests')
-  const [tests, setTests] = useState<any[]>([])
+  const [tests, setTests] = useState<Array<Test>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
   const location = useLocation()
   const isCreateTestPage = location.pathname.includes('/create-test')
   const isManageQuestionsPage = location.pathname.includes('/questions')
+  const isTestResultsPage = location.pathname.includes('/results')
 
   useEffect(() => {
     const fetchTests = async () => {
@@ -32,6 +35,7 @@ const InstructorDashboard = () => {
 
   if (isCreateTestPage) return <Outlet />
   if (isManageQuestionsPage) return <Outlet />
+  if (isTestResultsPage) return <Outlet />
 
   return (
     <div className='min-h-screen bg-muted/30'>
@@ -120,7 +124,7 @@ const InstructorDashboard = () => {
                   <div className='flex items-start justify-between mb-4'>
                     <div>
                       <h3 className='font-semibold text-lg mb-1'>{test.title}</h3>
-                      <p className='text-sm text-muted-foreground'>{test.description}</p>
+                      <p className='text-sm text-muted-foreground line-clamp-1'>{test.description}</p>
                     </div>
                     <span
                       className={`px-2 py-1 text-xs font-medium rounded ${
@@ -136,21 +140,36 @@ const InstructorDashboard = () => {
                       <span className='font-medium'>{test.duration} minutes</span>
                     </div>
                     <div className='flex justify-between'>
+                      <span className='text-muted-foreground'>Questions:</span>
+                      <span className='font-medium'>{test.questions} </span>
+                    </div>
+                    <div className='flex justify-between'>
                       <span className='text-muted-foreground'>Pass Code:</span>
                       <span className='font-medium font-mono'>{test.passCode}</span>
                     </div>
-                    <div className='flex justify-between'>
+                    {/* <div className='flex justify-between'>
                       <span className='text-muted-foreground'>Start Time:</span>
-                      <span className='font-medium'>{new Date(test.startTime).toLocaleDateString()}</span>
+                      <span className='font-medium'> {new Date(test.creator.createdAt).toLocaleDateString()}</span>
+                    </div> */}
+                    <div className='flex justify-between'>
+                      <span className='text-muted-foreground'>Released Answer:</span>
+                      <span className='font-medium'> {test.releasedAnswer ? 'Yes' : 'No'}</span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-muted-foreground'>Released Score:</span>
+                      <span className='font-medium'> {test.releasedScore ? 'Yes' : 'No'}</span>
                     </div>
                   </div>
                   <div className='mt-4 pt-4 border-t border-border flex gap-2'>
-                    <button className='flex-1 px-3 py-2 text-sm font-medium text-primary border border-primary rounded-lg hover:bg-primary/5 transition-colors'>
+                    <Link
+                      to={`/instructor/test/${test.testId}/results`}
+                      className='flex-1 px-3 py-2 text-sm font-medium text-primary-foreground border border-primary rounded-lg  transition-colors text-center bg-primary'
+                    >
                       View Results
-                    </button>
-                    <button className='flex-1 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors'>
+                    </Link>
+                    {/* <button className='flex-1 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors'>
                       Edit
-                    </button>
+                    </button> */}
                   </div>
                 </div>
               ))}

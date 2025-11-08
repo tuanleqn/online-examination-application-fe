@@ -8,8 +8,8 @@ const CreateTest = () => {
     title: '',
     description: '',
     duration: '',
-    startTime: Date.now().toString(),
-    endTime: Date.now().toString(),
+    startTime: '',
+    endTime: '',
     className: ''
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -59,29 +59,23 @@ const CreateTest = () => {
 
     if (!validateForm()) return
 
-    // Create test object and save to localStorage temporarily
     const newTest = {
-      id: `test-${Date.now()}`,
       title: formData.title,
       description: formData.description,
       duration: parseInt(formData.duration),
-      startTime: new Date(formData.startTime),
-      endTime: new Date(formData.endTime),
-      className: formData.className || 'Unassigned',
+      startTime: formData.startTime,
+      endTime: formData.endTime,
+      className: formData.className || '',
       passcode: '',
       questions: [],
-      status: 'draft' as const,
-      createdBy: 'instructor-1',
-      createdAt: new Date()
+      status: 'inactive' as const,
+      createdBy: '',
+      createdAt: new Date().toISOString()
     }
 
-    // Save to localStorage temporarily (will be submitted to API after adding questions)
-    const tests = JSON.parse(localStorage.getItem('tests') || '[]')
-    tests.push(newTest)
-    localStorage.setItem('tests', JSON.stringify(tests))
+    localStorage.setItem('tempTest', JSON.stringify(newTest))
 
-    // Redirect to manage questions
-    navigate(`/instructor/test/${newTest.id}/questions`)
+    navigate(`/instructor/test/questions`)
   }
 
   return (

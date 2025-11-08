@@ -9,7 +9,10 @@ const StudentDashboard = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const isTestPage = location.pathname.includes('/test/')
+  const isStudenResultPage = location.pathname.includes('/result')
+
   if (isTestPage) return <Outlet />
+  if (isStudenResultPage) return <Outlet />
 
   const handleAccessTest = () => {
     setError('')
@@ -119,54 +122,35 @@ const StudentDashboard = () => {
               </div>
             </div>
 
-            {/* Upcoming Tests */}
-            {/* <div className='mb-8'>
-              <h2 className='text-xl font-bold mb-4'>Upcoming Tests</h2>
-              <div className='space-y-4'>
-                {[
-                  {
-                    title: 'Midterm Exam',
-                    subject: 'Data Structures',
-                    date: '2025-02-15',
-                    time: '10:00 AM',
-                    duration: 90
-                  },
-                  { title: 'Quiz 3', subject: 'Algorithms', date: '2025-02-18', time: '2:00 PM', duration: 30 }
-                ].map((test, i) => (
-                  <div key={i} className='bg-card border border-border rounded-xl p-6 card-hover'>
-                    <div className='flex items-start justify-between'>
-                      <div>
-                        <h3 className='font-semibold text-lg mb-1'>{test.title}</h3>
-                        <p className='text-sm text-muted-foreground mb-3'>{test.subject}</p>
-                        <div className='flex items-center gap-4 text-sm'>
-                          <div className='flex items-center gap-1 text-muted-foreground'>
-                            <Calendar className='h-4 w-4' />
-                            {test.date}
-                          </div>
-                          <div className='flex items-center gap-1 text-muted-foreground'>
-                            <Clock className='h-4 w-4' />
-                            {test.time}
-                          </div>
-                          <span className='text-muted-foreground'>{test.duration} min</span>
-                        </div>
-                      </div>
-                      <span className='px-3 py-1 bg-warning-light text-warning text-sm font-medium rounded'>
-                        Scheduled
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div> */}
-
             {/* Recent Results */}
             <div>
               <h2 className='text-xl font-bold mb-4'>Recent Results</h2>
               <div className='space-y-4'>
                 {[
-                  { title: 'Quiz 2', subject: 'Data Structures', score: 85, total: 100, status: 'passed' },
-                  { title: 'Assignment 1', subject: 'Algorithms', score: 72, total: 100, status: 'passed' },
-                  { title: 'Quiz 1', subject: 'Data Structures', score: 58, total: 100, status: 'failed' }
+                  {
+                    testId: '213',
+                    title: 'Quiz 2',
+                    subject: 'Data Structures',
+                    score: 85,
+                    total: 100,
+                    status: 'passed'
+                  },
+                  {
+                    testId: '214',
+                    title: 'Assignment 1',
+                    subject: 'Algorithms',
+                    score: 72,
+                    total: 100,
+                    status: 'passed'
+                  },
+                  {
+                    testId: '215',
+                    title: 'Quiz 1',
+                    subject: 'Data Structures',
+                    score: 58,
+                    total: 100,
+                    status: 'failed'
+                  }
                 ].map((result, i) => (
                   <div key={i} className='bg-card border border-border rounded-xl p-6 card-hover'>
                     <div className='flex items-start justify-between'>
@@ -187,7 +171,12 @@ const StudentDashboard = () => {
                         ) : (
                           <AlertCircle className='h-6 w-6 text-danger' />
                         )}
-                        <button className='text-sm text-primary font-medium hover:underline'>View Details</button>
+                        <Link
+                          to={`/student/test/${result.testId}/result`}
+                          className='text-sm text-primary font-medium hover:underline'
+                        >
+                          View Details
+                        </Link>
                       </div>
                     </div>
                   </div>

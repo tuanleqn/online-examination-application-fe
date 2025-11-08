@@ -10,11 +10,9 @@ const TestConfirmation = () => {
             <CheckCircle2 className='h-12 w-12 text-success' />
           </div>
         </div>
-        
+
         <h1 className='text-2xl font-bold text-foreground mb-3'>Test Submitted Successfully!</h1>
-        <p className='text-muted-foreground mb-2'>
-          Your answers have been submitted and saved.
-        </p>
+        <p className='text-muted-foreground mb-2'>Your answers have been submitted and saved.</p>
         <p className='text-sm text-muted-foreground mb-8'>
           You will receive your results once the instructor has graded your test.
         </p>

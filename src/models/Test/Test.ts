@@ -1,13 +1,16 @@
 export interface Test {
-  id: string
+  testId: number
   title: string
-  duration: number // minutes
-  startTime: Date
-  endTime: Date
-  passcode: string
+  description: string
+  duration: number
+  questions: number
+  passCode: string
   classId: string
-  questions: string[] // question IDs
-  status: 'draft' | 'active' | 'closed'
-  createdBy: string
-  createdAt: Date
+  status: boolean
+  releasedAnswer: boolean
+  releasedScore: boolean
+  creator: {
+    createdAt: string
+    fullName: string
+  }
 }

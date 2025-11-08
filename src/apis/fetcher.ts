@@ -3,13 +3,13 @@ import axios from 'axios'
 export const fetcher = axios.create({
   baseURL: import.meta.env.VITE_BE_API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json'
   }
 })
 
 fetcher.interceptors.request.use((config) => {
-  // const token = localStorage.getItem('access_token')
-  const token = `eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJuZ3V5ZW52YW5hQGV4YW1wbGUuY29tIiwiaWF0IjoxNzYxOTg0MTc0LCJleHAiOjE3NjI1ODg5NzR9.zzKtsHLVYnLd0VIKCfkF-bmif1fOfUKIT4qOWxBnt9s`
+  const token = localStorage.getItem('authToken')
+  // const token = `eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbmh0dWFuQGdtYWlsLmNvbSIsImlhdCI6MTc2MjUzMzE3MywiZXhwIjoxNzYzMTM3OTczfQ.m353sVnqkepfT8LX5ySRPZiXeuaJiob0LS96VTMFeo4`
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }

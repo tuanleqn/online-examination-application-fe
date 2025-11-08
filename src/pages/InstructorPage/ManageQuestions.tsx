@@ -2,11 +2,12 @@ import type { Question } from '@/models/Test/Question'
 import type { Test } from '@/models/Test/Test'
 import { ArrowLeft, Check, Copy, Edit2, Key, Plus, Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { testsApi } from '@/apis/tests.api'
+import { toast } from 'react-toastify'
+import { time } from 'console'
 
 const ManageQuestions = () => {
-  const { testId } = useParams<{ testId: string }>()
   const navigate = useNavigate()
   const [test, setTest] = useState<Test | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
@@ -24,7 +25,6 @@ const ManageQuestions = () => {
     points: 1
   })
 
-  // Edit state: when editingId is set, editFormData holds the working values
   const [editQuestionType, setEditQuestionType] = useState<'mcq' | 'true-false'>('mcq')
   const [editFormData, setEditFormData] = useState({
     text: '',
@@ -34,33 +34,32 @@ const ManageQuestions = () => {
   })
 
   useEffect(() => {
-    // Load test from localStorage
-    const tests = JSON.parse(localStorage.getItem('tests') || '[]')
-    const foundTest = tests.find((t: Test) => t.id === testId)
-    if (foundTest) {
+    const tempTest = localStorage.getItem('tempTest')
+    if (tempTest) {
+      const foundTest = JSON.parse(tempTest)
       setTest(foundTest)
       setPasscode(foundTest.passcode || '')
-      // Load questions
-      const storedQuestions = JSON.parse(localStorage.getItem(`questions-${testId}`) || '[]')
+      const storedQuestions = JSON.parse(localStorage.getItem('tempQuestions') || '[]')
       setQuestions(storedQuestions)
     } else {
       navigate('/instructor')
     }
-  }, [testId, navigate])
+  }, [navigate])
 
   const generatePasscode = () => {
-    // Generate 8-character alphanumeric passcode
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // Excluding confusing characters
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
     let code = ''
     for (let i = 0; i < 8; i++) {
       code += chars.charAt(Math.floor(Math.random() * chars.length))
     }
     setPasscode(code)
 
-    // Update test in localStorage
-    const tests = JSON.parse(localStorage.getItem('tests') || '[]')
-    const updatedTests = tests.map((t: Test) => (t.id === testId ? { ...t, passcode: code } : t))
-    localStorage.setItem('tests', JSON.stringify(updatedTests))
+    const tempTest = localStorage.getItem('tempTest')
+    if (tempTest) {
+      const updatedTest = { ...JSON.parse(tempTest), passcode: code }
+      localStorage.setItem('tempTest', JSON.stringify(updatedTest))
+      setTest(updatedTest)
+    }
   }
 
   const copyPasscode = () => {
@@ -75,7 +74,6 @@ const ManageQuestions = () => {
     }
   }
 
-  // Edit-specific option handlers
   const addEditOption = () => {
     if (editFormData.options.length < 4) {
       setEditFormData((prev) => ({ ...prev, options: [...prev.options, ''] }))
@@ -119,14 +117,13 @@ const ManageQuestions = () => {
   }
 
   const handleAddQuestion = () => {
-    // Validation based on question type
     if (!formData.text.trim()) {
-      alert('Please enter the question text')
+      toast.error('Please enter the question text', { autoClose: 1000 })
       return
     }
 
     if (questionType === 'mcq' && formData.options.some((opt) => !opt.trim())) {
-      alert('Please fill in all options')
+      toast.error('Please fill in all options', { autoClose: 1000 })
       return
     }
 
@@ -142,7 +139,6 @@ const ManageQuestions = () => {
         points: formData.points
       }
     } else {
-      // true-false
       newQuestion = {
         id: `q-${Date.now()}`,
         type: 'true-false',
@@ -155,23 +151,23 @@ const ManageQuestions = () => {
 
     const updated = [...questions, newQuestion]
     setQuestions(updated)
-    localStorage.setItem(`questions-${testId}`, JSON.stringify(updated))
+    localStorage.setItem('tempQuestions', JSON.stringify(updated))
 
-    // Reset form
     setFormData({ text: '', options: ['', ''], correctAnswer: 0, points: 1 })
     setQuestionType('mcq')
     setShowAddForm(false)
+    toast.success('Question added successfully', { autoClose: 1000 })
   }
 
   const handleDeleteQuestion = (id: string) => {
     if (confirm('Are you sure you want to delete this question?')) {
       const updated = questions.filter((q) => q.id !== id)
       setQuestions(updated)
-      localStorage.setItem(`questions-${testId}`, JSON.stringify(updated))
+      localStorage.setItem('tempQuestions', JSON.stringify(updated))
+      toast.success('Question deleted successfully', { autoClose: 1000 })
     }
   }
 
-  // Start editing a question: prefill editFormData
   const startEdit = (q: Question) => {
     setEditingId(q.id)
     setEditQuestionType(q.type === 'mcq' ? 'mcq' : 'true-false')
@@ -181,17 +177,16 @@ const ManageQuestions = () => {
       correctAnswer: q.options ? Math.max(0, q.options.indexOf(String(q.correctAnswer))) : 0,
       points: q.points ?? 1
     })
-    // close add form if open
     setShowAddForm(false)
   }
 
   const saveEdit = () => {
     if (!editFormData.text.trim()) {
-      alert('Please enter the question text')
+      toast.error('Please enter the question text', { autoClose: 1000 })
       return
     }
     if (editQuestionType === 'mcq' && editFormData.options.some((opt) => !opt.trim())) {
-      alert('Please fill in all options')
+      toast.error('Please fill in all options', { autoClose: 1000 })
       return
     }
 
@@ -217,11 +212,11 @@ const ManageQuestions = () => {
         }
       }
     })
-    const typedUpdated = updatedQuestions as Question[]
 
-    setQuestions(typedUpdated)
-    localStorage.setItem(`questions-${testId}`, JSON.stringify(typedUpdated))
+    setQuestions(updatedQuestions as Question[])
+    localStorage.setItem('tempQuestions', JSON.stringify(updatedQuestions))
     setEditingId(null)
+    toast.success('Question updated successfully', { autoClose: 1000 })
   }
 
   const cancelEdit = () => {
@@ -230,55 +225,47 @@ const ManageQuestions = () => {
 
   const submitTest = async () => {
     if (!questions || questions.length === 0) {
-      alert('Please add at least one question before submitting the test.')
+      toast.error('Please add at least one question before submitting the test.', { autoClose: 1000 })
       return
     }
 
     if (!passcode) {
-      alert('Please generate a passcode before submitting.')
+      toast.error('Please generate a passcode before submitting.', { autoClose: 1000 })
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      // Prepare API payload according to the required format
       const apiPayload = {
-        tittle: test?.title || '', // Note: API uses "tittle" (typo in API)
-        description: (test as any)?.description || '',
+        tittle: test?.title || '',
+        description: test?.description || '',
         passCode: passcode,
         status: true,
-        duration: (test as any)?.duration || 0,
+        duration: test?.duration || 0,
         questionCount: questions.length,
-        submisssionCount: 0, // Note: API uses "submisssionCount" (typo in API)
-        creatorId: 1, // TODO: Replace with actual creator ID from auth
+        submisssionCount: 0,
+        creatorId: 1,
         questions: questions.map((q, index) => ({
           questionId: index + 1,
           questionText: q.text,
-          // composer field can be null or filled based on your requirements
+          score: q.points,
           composer: null
         }))
       }
 
-      // Call API to create test
       const response = await testsApi.createTest(apiPayload)
-      console.log('Test created successfully:', response)
 
-      // Update localStorage to mark as published
-      const tests = JSON.parse(localStorage.getItem('tests') || '[]') as Test[]
-      const updatedTests = tests.map((t: Test) => (t.id === testId ? { ...t, questions, published: true } : t))
-      localStorage.setItem('tests', JSON.stringify(updatedTests))
+      localStorage.removeItem('tempTest')
+      localStorage.removeItem('tempQuestions')
 
-      // Update local state
-      setTest((prev) => (prev ? ({ ...prev, questions, published: true } as any) : prev))
+      toast.success('Test submitted successfully!', { autoClose: 1000 })
 
-      alert('Test submitted successfully!')
-
-      // Redirect to dashboard
-      navigate('/instructor')
+      setTimeout(() => {
+        navigate('/instructor')
+      }, 1000)
     } catch (error) {
-      console.error('Error submitting test:', error)
-      alert('Failed to submit test. Please try again.')
+      toast.error('Failed to submit test. Please try again.', { autoClose: 1000 })
     } finally {
       setIsSubmitting(false)
     }
