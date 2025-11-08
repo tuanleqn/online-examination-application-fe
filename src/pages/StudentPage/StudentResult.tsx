@@ -37,7 +37,7 @@ const StudentResult = () => {
 
       // Temporary: Sử dụng giá trị mặc định
       const studentUserId = 3
-      const testIdNumber = 1 // Mặc định testId = 1, sau này sẽ lấy từ params
+      const testIdNumber = 2 // Mặc định testId = 1, sau này sẽ lấy từ params
 
       const data = await testsApi.getStudentSubmission({
         testId: testIdNumber,
